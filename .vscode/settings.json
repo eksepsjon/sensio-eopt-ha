@@ -1,0 +1,6 @@
+{
+    "i18n-ally.localesPaths": [
+        "decompiled/sources/mono/java/lang",
+        "decompiled/sources/org/intellij/lang"
+    ]
+}

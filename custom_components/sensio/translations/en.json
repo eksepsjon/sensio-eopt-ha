@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Sensio / X-Comfort controller",
+        "description": "Enter the credentials from your supplier's **smarthome.bash** script.\n\n- `token=` → Token ID\n- `secret=` → Token Secret\n- Controller IP: run `arp -a | findstr {MAC}` to find it",
+        "data": {
+          "host": "Controller IP address",
+          "token_id": "Token ID (GUID)",
+          "token_secret": "Token secret"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to controller. Check the IP address and that the controller is on the LAN.",
+      "timeout": "Connection timed out. The controller did not respond within 10 seconds.",
+      "unknown": "Unexpected error. Check the HA logs for details."
+    },
+    "abort": {
+      "already_configured": "This controller is already configured."
+    }
+  }
+}
