@@ -6,7 +6,7 @@ No OAuth2 or cloud API required for local LAN control.
 
 Quick start:
     sensio setup --token-id 4990ce24-... --token-secret aQhU... \\
-                 --mac 98:02:84:01:42:C6 --controller-ip 192.168.68.119
+                 --mac AA:BB:CC:DD:EE:FF --controller-ip 192.168.x.x
 
     sensio list
     sensio run "Kitchen/Stue Light On"
