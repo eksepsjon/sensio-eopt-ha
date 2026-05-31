@@ -17,19 +17,20 @@ from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from sensio.controller import SensioController
-from sensio.devices import discover_devices
-from sensio.functions import FUNCTIONS
+from .lib.controller import SensioController
+from .lib.devices import discover_devices
+from .lib.functions import FUNCTIONS
 
 from .const import CONF_TOKEN_ID, CONF_TOKEN_SECRET, DOMAIN, PLATFORMS
 from .coordinator import SensioCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-type SensioConfigEntry = ConfigEntry[SensioCoordinator]
+# Type alias (ConfigEntry carrying our coordinator as runtime_data)
+SensioConfigEntry = ConfigEntry  # type: ignore[type-arg]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: SensioConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Sensio from a config entry."""
     host         = entry.data[CONF_HOST]
     token_id     = entry.data[CONF_TOKEN_ID]
@@ -59,7 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SensioConfigEntry) -> bo
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: SensioConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     coordinator: SensioCoordinator = entry.runtime_data
     await coordinator.async_stop()

@@ -24,7 +24,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from sensio.devices import SensioDimmer, SensioLight
+from .lib.devices import SensioDimmer, SensioLight
 
 from .coordinator import SensioCoordinator
 from .entity import SensioEntity

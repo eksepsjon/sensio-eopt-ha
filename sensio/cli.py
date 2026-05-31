@@ -28,6 +28,7 @@ from .config import (
     clear_credentials,
     is_configured,
     load_credentials,
+    load_id_cache,
     save_credentials,
 )
 from .events import parse_event
@@ -277,11 +278,11 @@ def monitor(raw: bool) -> None:
             )
         elif evt.is_device_value:
             level = evt.int_value
-            bar = "█" * (level * 20 // 255) if level > 0 else "·"
+            bar = "|" * (level // 5) if level > 0 else "-"
             console.print(
                 f"[dim]{ts}[/dim] [bold yellow][dimmer ][/bold yellow]  "
                 f"[cyan]{evt.name}[/cyan]  "
-                f"[white]{level}[/white]/255  {bar}"
+                f"[white]{level}[/white]%  {bar}"
             )
         elif evt.is_register:
             console.print(
@@ -321,20 +322,22 @@ def monitor(raw: bool) -> None:
 @click.option("--timeout", "-t", default=3.0, show_default=True,
               help="Seconds to collect events after connect")
 def state(timeout: float) -> None:
-    """Show current device values by listening to the event stream.
+    """Show current device values.
 
-    Connects to the controller, collects all events for TIMEOUT seconds,
-    then displays the latest value for each device.
+    Connects to the controller and actively requests state for all known
+    objects via d_obj (if IDs have been discovered from previous monitor/state
+    runs), then also passively collects any RSN events that arrive.
 
     \b
     Tips:
-      - Run immediately after toggling something to see the change
-      - Increase --timeout if your network is slow
+      - Run `sensio monitor` for a while first to build the ID cache
+        (~/.sensio/id_cache.json) — after that, state is fetched actively
+      - Without a cache, only devices that changed recently will appear
       - Dimmer levels are 0-100 (percent); use `sensio dim` to set them
     """
     creds = _require_config()
 
-    # Collect: name → latest SensioEvent
+    # Collect: name -> latest SensioEvent
     from .events import SensioEvent
     latest: dict[str, SensioEvent] = {}
 
@@ -343,7 +346,23 @@ def state(timeout: float) -> None:
         if evt is not None:
             latest[evt.name] = evt
 
-    console.print(f"Collecting events for {timeout}s …")
+    # Load cached name->id mappings from previous runs
+    id_cache = load_id_cache()
+    # Only request D_* and M_* objects (device values and registers)
+    requestable = {name: nid for name, nid in id_cache.items()
+                   if name.startswith(("D_", "M_"))}
+
+    if requestable:
+        console.print(
+            f"Requesting state for [bold]{len(requestable)}[/bold] known objects, "
+            f"collecting for {timeout}s..."
+        )
+    else:
+        console.print(
+            f"[yellow]No ID cache yet[/yellow] - collecting passively for {timeout}s.\n"
+            f"[dim]Run [bold]sensio monitor[/bold] to build the cache for faster state queries.[/dim]"
+        )
+
     try:
         client = LocalClient(
             creds["controller_ip"],
@@ -352,6 +371,9 @@ def state(timeout: float) -> None:
             event_callback=on_event,
         )
         client.connect()
+        # Actively request current state for all known object IDs
+        for numeric_id in requestable.values():
+            client.request_state(numeric_id)
         time.sleep(timeout)
         client.disconnect()
     except Exception as exc:
@@ -378,8 +400,8 @@ def state(timeout: float) -> None:
             state_str = (
                 "[green]ON[/green]" if v > 0 else "[dim]off[/dim]"
             )
-            bar = "█" * (v * 20 // 255) if v > 0 else ""
-            t.add_row(name, str(v), f"{state_str}  {bar}")
+            bar = "|" * (v // 5) if v > 0 else ""
+            t.add_row(name, f"{v}%", f"{state_str}  {bar}")
         console.print(t)
 
     if triggers:

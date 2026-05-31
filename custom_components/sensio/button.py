@@ -15,7 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from sensio.devices import SensioScene
+from .lib.devices import SensioScene
 
 from .coordinator import SensioCoordinator
 from .entity import SensioEntity

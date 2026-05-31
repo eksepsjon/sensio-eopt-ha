@@ -70,3 +70,34 @@ def is_configured() -> bool:
 def clear_credentials() -> None:
     if CONFIG_FILE.exists():
         CONFIG_FILE.unlink()
+
+
+# ---------------------------------------------------------------------------
+# Object ID cache  (name → numeric controller ID)
+# Populated from RSN events; persisted so d_obj queries work across sessions.
+# ---------------------------------------------------------------------------
+
+ID_CACHE_FILE = CONFIG_DIR / "id_cache.json"
+
+
+def load_id_cache() -> dict[str, int]:
+    """Return the name→numericId map saved from previous RSN observations."""
+    if ID_CACHE_FILE.exists():
+        with ID_CACHE_FILE.open("r", encoding="utf-8") as f:
+            return {k: int(v) for k, v in json.load(f).items()}
+    return {}
+
+
+def save_id_cache(cache: dict[str, int]) -> None:
+    """Persist the name→numericId map to disk."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with ID_CACHE_FILE.open("w", encoding="utf-8") as f:
+        json.dump(cache, f, indent=2, sort_keys=True)
+    ID_CACHE_FILE.chmod(0o600)
+
+
+def update_id_cache(new_ids: dict[str, int]) -> None:
+    """Merge new name→id pairs into the persisted cache."""
+    cache = load_id_cache()
+    cache.update(new_ids)
+    save_id_cache(cache)

@@ -11,7 +11,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST
 
-from sensio.controller import SensioController
+from .lib.controller import SensioController
 
 from .const import CONF_TOKEN_ID, CONF_TOKEN_SECRET, DOMAIN
 

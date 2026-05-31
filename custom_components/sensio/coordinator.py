@@ -16,9 +16,9 @@ from typing import Optional
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from sensio.controller import SensioController
-from sensio.devices import DeviceRegistry
-from sensio.events import SensioEvent, parse_event
+from .lib.controller import SensioController
+from .lib.devices import DeviceRegistry
+from .lib.events import SensioEvent, parse_event
 
 from .const import SIGNAL_CONNECTED, SIGNAL_EVENT
 

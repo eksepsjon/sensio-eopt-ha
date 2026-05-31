@@ -15,20 +15,20 @@ SMUX message framing (used for ALL messages in both directions):
   \x02 alone        — MessageEnd byte
 
 Handshake (after receiving <connect> banner):
-  ← \x01<connect sn="..." ip="..." mac="..." .../>\x02
-  → \x01LOGIN-TO <tokenId>GUID</tokenId><secret>SECRET</secret><dev>WEB</dev><feet>16</feet>\x02
-  ← (controller starts sending SMUX events)
+  <- \x01<connect sn="..." ip="..." mac="..." .../>\x02
+  -> \x01LOGIN-TO <tokenId>GUID</tokenId><secret>SECRET</secret><dev>WEB</dev><feet>16</feet>\x02
+  <- (controller starts sending SMUX events)
 
 Outgoing commands:
-  → \x01new_state {function_name} 0\x02     — trigger a named function
-  → \x01new_state {function_name} {n}\x02   — trigger with value (dimmers 0-255)
+  -> \x01new_state {function_name} 0\x02     -- trigger a named function
+  -> \x01new_state {function_name} {n}\x02   -- trigger with value (dimmers 0-255)
 
 Incoming events (SMUX-framed text):
   RSN {shortId} {name} {typeId} {enabled} {state} {value}
   SSN {shortId} {name} {typeId} {enabled} {state} {value}
-  x_bm_st ACK_DIR seq={N}    — keepalive (echo back as-is)
-  PANEL_BRIGHTNESS {N}       — panel keepalive (echo back as-is)
-  end {function_name}        — command execution confirmation
+  x_bm_st ACK_DIR seq={N}    -- keepalive (echo back as-is)
+  PANEL_BRIGHTNESS {N}       -- panel keepalive (echo back as-is)
+  end {function_name}        -- command execution confirmation
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ def _smux_parse(buf: bytes) -> tuple[list[str], bytes]:
         # Read until \x02 (MessageEnd)
         end = buf.find(b'\x02', i)
         if end == -1:
-            # Incomplete message — back up to start
+            # Incomplete message -- back up to start
             i -= 1
             break
 
@@ -238,21 +238,21 @@ class LocalClient:
 
         function_name: one of the B_* names from the controller config
                        e.g. "B_LightUtelys_ON", "B_HouseMode_Away"
-        value: optional value (0 for buttons/toggles; unused for dimmers — use dim() instead)
+        value: optional value (0 for buttons/toggles; unused for dimmers -- use dim() instead)
         """
         self._send(f"new_state {function_name} {value}")
 
     def dim(self, set_action_name: str, percent: int) -> None:
         """
-        Set a dimmer to a percentage level (0–100).
+        Set a dimmer to a percentage level (0-100).
 
         set_action_name: the B_D_*_SET function name,
                          e.g. "B_D_Hall2etgHallTrappEntre_SET"
-        percent: 0–100
+        percent: 0-100
 
         The controller requires two messages:
-          set_value M_D_{name}_Val {percent}   — write target value to register
-          new_state B_D_{name}_SET 0           — trigger the SET action
+          set_value M_D_{name}_Val {percent}   -- write target value to register
+          new_state B_D_{name}_SET 0           -- trigger the SET action
         """
         # Derive the value-register name: B_D_{name}_SET -> M_D_{name}_Val
         if set_action_name.startswith("B_D_") and set_action_name.endswith("_SET"):
@@ -269,10 +269,6 @@ class LocalClient:
         """
         Request current state for a specific object by numeric ID.
         The controller responds with an SSN event containing the current value.
-
-        numeric_id: the controller's internal integer ID for the object.
-                    These are discovered from RSN events and stored in
-                    ~/.sensio/id_cache.json by sensio monitor / sensio state.
         """
         self._send(f"d_obj {numeric_id}")
 
@@ -365,7 +361,7 @@ class LocalClient:
                             self._send(text)
                         except OSError:
                             pass
-                    # Harvest name→id pairs from RSN/SSN events for d_obj use
+                    # Harvest name->id pairs from RSN/SSN events for d_obj use
                     m = _RSN_ID_RE.match(text)
                     if m:
                         num_id, name = int(m.group(1)), m.group(2)

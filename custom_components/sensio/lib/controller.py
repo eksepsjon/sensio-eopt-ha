@@ -1,9 +1,8 @@
 """
 Async TCP client for Sensio/X-Comfort controllers.
 
-Uses asyncio.StreamReader/StreamWriter — runs inside Home Assistant's event loop
-or any other asyncio application.  The sync LocalClient in local.py remains
-available for the CLI and simple scripts.
+Uses asyncio.StreamReader/StreamWriter -- runs inside Home Assistant's event loop
+or any other asyncio application.
 
 Typical usage in Home Assistant:
 
@@ -20,10 +19,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from typing import Optional
-
-import re
 
 from .local import ControllerInfo, CONTROLLER_PORT, ENCODING, _smux_encode, _smux_parse
 
@@ -208,7 +206,7 @@ class SensioController:
         Send a new_state command.
 
         func_name: B_* name from the controller project config
-        value:     0 for buttons/on-off; unused for dimmers — use dim() instead
+        value:     0 for buttons/on-off; unused for dimmers -- use dim() instead
         """
         if not self.connected:
             raise RuntimeError("Not connected to controller")
@@ -216,11 +214,11 @@ class SensioController:
 
     async def dim(self, set_action_name: str, percent: int) -> None:
         """
-        Set a dimmer to a percentage level (0–100).
+        Set a dimmer to a percentage level (0-100).
 
         set_action_name: the B_D_*_SET function name,
                          e.g. "B_D_Hall2etgHallTrappEntre_SET"
-        percent: 0–100
+        percent: 0-100
 
         Sends:
           set_value M_D_{name}_Val {percent}

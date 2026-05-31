@@ -30,7 +30,7 @@ from homeassistant.const import PRECISION_HALVES, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from sensio.devices import SensioModeSelector, SensioThermostat
+from .lib.devices import SensioModeSelector, SensioThermostat
 
 from .coordinator import SensioCoordinator
 from .entity import SensioEntity
