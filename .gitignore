@@ -4,3 +4,21 @@ extracted-dlls
 apk
 probe*
 smarthome*
+
+# Credentials and local config
+*.env
+.env.*
+config.json
+config.local.json
+
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Tools
+.DS_Store

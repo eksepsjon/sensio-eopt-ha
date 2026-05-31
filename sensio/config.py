@@ -5,7 +5,6 @@ Credentials are stored in ~/.sensio/config.json.
 They come from the supplier-provided smarthome.bash script:
     token  → token_id   (UUID, used as tokenId in LOCAL TCP LOGIN-TO)
     secret → token_secret
-    mac    → mac         (controller MAC address)
     url    → controller_ip can be discovered via ARP or router DHCP table
 
 No OAuth2 or cloud API needed for local LAN control.
@@ -38,26 +37,23 @@ def _save(data: dict) -> None:
 def save_credentials(
     token_id: str,
     token_secret: str,
-    mac: str,
     controller_ip: str,
 ) -> None:
     data = _load()
     data.update(
         token_id=token_id,
         token_secret=token_secret,
-        mac=mac,
         controller_ip=controller_ip,
     )
     _save(data)
 
 
 def load_credentials() -> dict:
-    """Return dict with token_id, token_secret, mac, controller_ip (or empty strs)."""
+    """Return dict with token_id, token_secret, controller_ip (or empty strs)."""
     data = _load()
     return {
         "token_id": data.get("token_id", ""),
         "token_secret": data.get("token_secret", ""),
-        "mac": data.get("mac", ""),
         "controller_ip": data.get("controller_ip", ""),
     }
 

@@ -5,8 +5,7 @@ Credentials come from the supplier-provided smarthome.bash script.
 No OAuth2 or cloud API required for local LAN control.
 
 Quick start:
-    sensio setup --token-id 4990ce24-... --token-secret aQhU... \\
-                 --mac 98:02:84:01:42:C6 --controller-ip 192.168.68.119
+    sensio setup --token-id 4990ce24-... --token-secret aQhU... --controller-ip 192.168.x.x
 
     sensio list
     sensio run "Kitchen/Stue Light On"
@@ -43,8 +42,7 @@ def _require_config() -> dict:
         console.print(
             "[red]Not configured.[/red] Run [bold]sensio setup[/bold] first.\n"
             "Get the credentials from your supplier's smarthome.bash script:\n"
-            "  sensio setup --token-id TOKEN --token-secret SECRET \\\n"
-            "               --mac MAC --controller-ip IP"
+            "  sensio setup --token-id TOKEN --token-secret SECRET --controller-ip IP"
         )
         sys.exit(1)
     return load_credentials()
@@ -68,21 +66,18 @@ def cli() -> None:
               help="Token GUID (from smarthome.bash 'token=' line)")
 @click.option("--token-secret", required=True, envvar="SENSIO_TOKEN_SECRET",
               help="Token secret (from smarthome.bash 'secret=' line)")
-@click.option("--mac", required=True, envvar="SENSIO_MAC",
-              help="Controller MAC address (from smarthome.bash 'mac=' line)")
 @click.option("--controller-ip", required=True, envvar="SENSIO_CONTROLLER_IP",
-              help="Controller LAN IP (find via 'arp -a | grep MAC')")
-def setup(token_id: str, token_secret: str, mac: str, controller_ip: str) -> None:
+              help="Controller LAN IP (check your router's DHCP table)")
+def setup(token_id: str, token_secret: str, controller_ip: str) -> None:
     """Save controller credentials from the supplier's smarthome.bash script.
 
     \b
     Where to find the values:
       token=     → --token-id
       secret=    → --token-secret
-      mac=       → --mac
-      controller IP: run  arp -a | grep <MAC>  from this PC
+      controller IP: check your router's DHCP table or run  arp -a
     """
-    save_credentials(token_id, token_secret, mac, controller_ip)
+    save_credentials(token_id, token_secret, controller_ip)
     console.print(f"[green]Saved.[/green] Credentials stored in ~/.sensio/config.json")
 
     # Quick connectivity test
@@ -435,7 +430,6 @@ def status() -> None:
     t.add_column("Key")
     t.add_column("Value")
     t.add_row("controller_ip", creds["controller_ip"])
-    t.add_row("mac", creds["mac"])
     t.add_row("token_id", creds["token_id"])
     t.add_row("token_secret", creds["token_secret"][:6] + "…")
     console.print(t)

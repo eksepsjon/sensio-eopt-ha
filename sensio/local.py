@@ -4,7 +4,7 @@ Local LAN TCP client for Sensio/X-Comfort controllers.
 Protocol details reverse-engineered from Sensio.ControllerClient.Lite.dll.
 
 Connection:
-  - Host: controller local IP (e.g. 192.168.68.119)
+  - Host: controller local IP (e.g. 192.168.x.x)
   - Port: 10023 (TCP, no TLS)
   - Encoding: Windows-1252 (cp1252)
 
@@ -134,7 +134,7 @@ class LocalClient:
     Connects to a Sensio controller on the local network using SMUX framing.
 
     Usage (blocking / scripted):
-        client = LocalClient("192.168.68.119", token_id, token_secret)
+        client = LocalClient("192.168.x.x", token_id, token_secret)
         client.connect()
         info = client.controller_info   # ControllerInfo after connect
         client.trigger("B_LightUtelys_ON")
