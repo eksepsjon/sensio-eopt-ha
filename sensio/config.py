@@ -139,8 +139,11 @@ ID_CACHE_FILE = CONFIG_DIR / "id_cache.json"
 def load_id_cache() -> dict[str, int]:
     """Return the name→numericId map saved from previous RSN observations."""
     if ID_CACHE_FILE.exists():
-        with ID_CACHE_FILE.open("r", encoding="utf-8") as f:
-            return {k: int(v) for k, v in json.load(f).items()}
+        try:
+            with ID_CACHE_FILE.open("r", encoding="utf-8") as f:
+                return {k: int(v) for k, v in json.load(f).items()}
+        except (json.JSONDecodeError, ValueError):
+            return {}
     return {}
 
 

@@ -22,3 +22,5 @@ build/
 
 # Tools
 .DS_Store
+
+sensio/__pycache__/
