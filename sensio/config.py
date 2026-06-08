@@ -12,9 +12,52 @@ No OAuth2 or cloud API needed for local LAN control.
 
 from __future__ import annotations
 
+import base64
 import json
+import re
 from pathlib import Path
 from typing import Optional
+
+def parse_smarthome_bash(
+    text: str,
+) -> tuple[str, str, str, list[tuple[str, str]]]:
+    """Return (token_id, token_secret, mac, functions) from a smarthome.bash script.
+
+    functions is a list of (internal_name, display_name) pairs.
+    Raises ValueError with a short message on failure.
+    """
+    m = re.search(r"<<__BASE64__\s*([\s\S]+?)__BASE64__", text)
+    if not m:
+        raise ValueError("no base64 block found — paste the complete smarthome.bash file")
+
+    try:
+        decoded = base64.b64decode("".join(m.group(1).split())).decode("utf-8")
+    except Exception:
+        raise ValueError("failed to decode base64 block — the script may be corrupted")
+
+    def _field(name: str) -> str:
+        fm = re.search(rf'^{name}="([^"]+)"', decoded, re.MULTILINE)
+        if not fm:
+            raise ValueError(f"field '{name}' not found in decoded script")
+        return fm.group(1)
+
+    def _array(name: str) -> list[str]:
+        am = re.search(rf'^{name}=\(\s*([\s\S]*?)\s*\)', decoded, re.MULTILINE)
+        if not am:
+            raise ValueError(f"array '{name}' not found in decoded script")
+        return re.findall(r'"([^"]*)"', am.group(1))
+
+    func_names = _array("func_names")
+    nice_names = _array("nice_names")
+    if len(func_names) != len(nice_names):
+        raise ValueError(
+            f"func_names ({len(func_names)}) and nice_names ({len(nice_names)}) "
+            "have different lengths"
+        )
+
+    functions = list(zip(func_names, nice_names))
+    return _field("token"), _field("secret"), _field("mac"), functions
+
 
 CONFIG_DIR = Path.home() / ".sensio"
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -61,6 +104,23 @@ def load_credentials() -> dict:
 def is_configured() -> bool:
     creds = load_credentials()
     return bool(creds["token_id"] and creds["token_secret"] and creds["controller_ip"])
+
+
+FUNCTIONS_FILE = CONFIG_DIR / "functions.json"
+
+
+def save_functions(functions: list[tuple[str, str]]) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with FUNCTIONS_FILE.open("w", encoding="utf-8") as f:
+        json.dump(functions, f, indent=2, ensure_ascii=False)
+
+
+def load_functions() -> list[tuple[str, str]] | None:
+    """Return saved (internal_name, display_name) pairs, or None if not saved yet."""
+    if not FUNCTIONS_FILE.exists():
+        return None
+    with FUNCTIONS_FILE.open("r", encoding="utf-8") as f:
+        return [tuple(pair) for pair in json.load(f)]
 
 
 def clear_credentials() -> None:

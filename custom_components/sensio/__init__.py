@@ -19,9 +19,8 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .lib.controller import SensioController
 from .lib.devices import discover_devices
-from .lib.functions import FUNCTIONS
 
-from .const import CONF_TOKEN_ID, CONF_TOKEN_SECRET, DOMAIN, PLATFORMS
+from .const import CONF_FUNCTIONS, CONF_TOKEN_ID, CONF_TOKEN_SECRET, DOMAIN, PLATFORMS
 from .coordinator import SensioCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,7 +45,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             f"Cannot connect to Sensio controller at {host}:10023 — {exc}"
         ) from exc
 
-    device_registry = discover_devices(FUNCTIONS)
+    functions = [tuple(pair) for pair in entry.data.get(CONF_FUNCTIONS, [])]
+    device_registry = discover_devices(functions)
 
     coordinator = SensioCoordinator(hass, controller, device_registry)
     entry.runtime_data = coordinator

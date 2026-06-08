@@ -5,6 +5,7 @@ DOMAIN = "sensio"
 # Config entry keys
 CONF_TOKEN_ID     = "token_id"
 CONF_TOKEN_SECRET = "token_secret"
+CONF_FUNCTIONS    = "functions"  # list of [internal_name, display_name] pairs
 
 # Dispatcher signal: fired for every raw event line from the controller.
 # Payload: str (the raw line, e.g. "DB:EVENT,..." or "RPC B_LightUtelys_ON")

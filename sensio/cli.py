@@ -5,7 +5,7 @@ Credentials come from the supplier-provided smarthome.bash script.
 No OAuth2 or cloud API required for local LAN control.
 
 Quick start:
-    sensio setup --token-id 4990ce24-... --token-secret aQhU... --controller-ip 192.168.x.x
+    sensio config -f smarthome.bash --controller-ip 192.168.x.x
 
     sensio list
     sensio run "Kitchen/Stue Light On"
@@ -28,7 +28,9 @@ from .config import (
     is_configured,
     load_credentials,
     load_id_cache,
+    parse_smarthome_bash,
     save_credentials,
+    save_functions,
 )
 from .events import parse_event
 from .functions import FUNCTIONS, find_function
@@ -97,6 +99,59 @@ def forget() -> None:
     """Remove stored credentials."""
     clear_credentials()
     console.print("Credentials cleared.")
+
+
+@cli.command("config")
+@click.option(
+    "--file", "-f", "script_file",
+    required=True,
+    type=click.Path(exists=True, readable=True, dir_okay=False),
+    help="Path to smarthome.bash",
+)
+@click.option("--controller-ip", envvar="SENSIO_CONTROLLER_IP",
+              help="Controller LAN IP (check your router's DHCP table or run: arp -a)")
+def config_from_script(script_file: str, controller_ip: str | None) -> None:
+    """Configure from a smarthome.bash script file.
+
+    \b
+    Examples:
+        sensio config -f smarthome.bash --controller-ip 192.168.1.x
+        sensio config -f ~/Downloads/smarthome.bash
+    """
+    text = click.open_file(script_file).read()
+    try:
+        token_id, token_secret, mac, functions = parse_smarthome_bash(text)
+    except ValueError as exc:
+        console.print(f"[red]Parse error:[/red] {exc}")
+        raise SystemExit(1)
+
+    console.print(f"Parsed from [bold]{script_file}[/bold]:")
+    console.print(f"  token-id    : [cyan]{token_id}[/cyan]")
+    console.print(f"  token-secret: [cyan]{token_secret[:6]}…[/cyan]")
+    console.print(f"  mac         : [cyan]{mac}[/cyan]")
+    console.print(f"  functions   : [cyan]{len(functions)}[/cyan] entries")
+
+    if not controller_ip:
+        console.print(
+            f"\n[yellow]Controller IP not provided.[/yellow] "
+            f"Find it with:\n  arp -a | findstr {mac}\n"
+            "Then re-run with [bold]--controller-ip[/bold], or set [bold]SENSIO_CONTROLLER_IP[/bold]."
+        )
+        raise SystemExit(1)
+
+    save_credentials(token_id, token_secret, controller_ip)
+    save_functions(functions)
+    console.print(f"\n[green]Saved.[/green] Credentials and functions stored in ~/.sensio/")
+
+    console.print(f"Testing connection to {controller_ip}:10023 …")
+    try:
+        client = LocalClient(controller_ip, token_id, token_secret)
+        info = client.connect()
+        client.disconnect()
+        console.print(f"[green]Connected![/green] {info}")
+    except Exception as exc:
+        console.print(f"[yellow]Connection test failed:[/yellow] {exc}")
+        console.print("Credentials saved; check controller IP and network.")
 
 
 # ---------------------------------------------------------------------------
