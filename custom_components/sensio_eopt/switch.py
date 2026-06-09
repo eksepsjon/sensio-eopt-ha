@@ -61,6 +61,11 @@ class SensioEoptSwitchEntity(SensioEoptEntity, SwitchEntity):
             elif event.name == self.device.func_off:
                 self.device.is_on = False
                 self.async_write_ha_state()
+        elif event.is_device_value:
+            # D_R_* type 21 — controller reporting current relay state (0=off, 100=on)
+            if event.name == "D_" + self.device.unique_id[2:]:
+                self.device.is_on = event.is_on
+                self.async_write_ha_state()
 
     async def _async_restore_state(self, last_state) -> None:
         self.device.is_on = last_state.state == "on"
