@@ -16,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 
 from .lib.controller import SensioEoptController
 from .lib.devices import discover_devices
@@ -50,6 +51,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = SensioEoptCoordinator(hass, controller, device_registry)
     entry.runtime_data = coordinator
+
+    # Register the gateway as a hub device so sub-devices can reference it
+    # via via_device without creating a dangling reference.
+    dev_reg = dr.async_get(hass)
+    dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, host)},
+        name="Sensio Eopt Controller",
+        manufacturer="Eaton / Sensio Eopt",
+        model="X-Comfort Gateway",
+        sw_version=(
+            controller.controller_info.firmware
+            if controller.controller_info
+            else None
+        ),
+    )
 
     # Start the reconnect loop (initial connect already done above)
     await coordinator.async_start()
