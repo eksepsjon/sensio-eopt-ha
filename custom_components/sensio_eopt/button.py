@@ -1,11 +1,10 @@
 """
 Sensio Eopt button platform.
 
-Exposes SensioEoptScene objects as HA button entities — one-shot triggers that
-don't have meaningful state (alarm resets, house-wide scenes, temperature
-presets, etc.).
-
-Pressing the button fires the corresponding B_* function with value 0.
+Exposes two kinds of pressable buttons:
+  - SensioEoptScene objects (one-shot triggers: alarm resets, house-wide scenes, etc.)
+  - SensioEoptModeSelector options — one button per mode (Home / Away / Night / Vacation)
+    so that pressing always re-applies the mode even if it is already active.
 """
 
 from __future__ import annotations
@@ -15,10 +14,18 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .lib.devices import SensioEoptScene
+from .lib.devices import SensioEoptModeSelector, SensioEoptScene
 
+from .const import DOMAIN
 from .coordinator import SensioEoptCoordinator
 from .entity import SensioEoptEntity
+
+OPTION_LABELS = {
+    "home":     "Home",
+    "away":     "Away",
+    "night":    "Night",
+    "vacation": "Vacation",
+}
 
 
 async def async_setup_entry(
@@ -27,10 +34,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: SensioEoptCoordinator = entry.runtime_data
-    async_add_entities(
+
+    entities: list[ButtonEntity] = [
         SensioEoptButtonEntity(coordinator, scene)
         for scene in coordinator.device_registry.scenes
-    )
+    ]
+
+    for ms in coordinator.device_registry.mode_selectors:
+        for option_key, func in ms.options.items():
+            entities.append(SensioEoptModeButtonEntity(coordinator, ms, option_key, func))
+
+    async_add_entities(entities)
 
 
 class SensioEoptButtonEntity(SensioEoptEntity, ButtonEntity):
@@ -42,3 +56,24 @@ class SensioEoptButtonEntity(SensioEoptEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.controller.trigger(self.device.func, self.device.value)
+
+
+class SensioEoptModeButtonEntity(SensioEoptEntity, ButtonEntity):
+    """One pressable button per mode option — always re-applies the mode on press."""
+
+    def __init__(
+        self,
+        coordinator: SensioEoptCoordinator,
+        device: SensioEoptModeSelector,
+        option_key: str,
+        func: str,
+    ) -> None:
+        super().__init__(coordinator, device)
+        self._option_key = option_key
+        self._func = func
+        label = OPTION_LABELS.get(option_key, option_key.capitalize())
+        self._attr_name = f"{device.name} {label}"
+        self._attr_unique_id = f"{DOMAIN}_{device.unique_id}_{option_key}"
+
+    async def async_press(self) -> None:
+        await self.coordinator.controller.trigger(self._func)

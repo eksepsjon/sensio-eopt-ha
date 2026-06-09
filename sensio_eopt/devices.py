@@ -8,7 +8,7 @@ that map naturally to Home Assistant entity types:
   SensioEoptDimmer      → HA light  (brightness 0-100 percent, converted to 0-255 for HA)
   SensioEoptRelay       → HA switch
   SensioEoptThermostat  → HA climate (floor heating)
-  SensioEoptModeSelector→ HA select  (home/away/night/vacation per zone)
+  SensioEoptModeSelector→ HA button  (one button per mode: home/away/night/vacation)
   SensioEoptScene       → HA scene / button (house-wide modes, leftover B_* triggers)
 
 Usage:
@@ -94,7 +94,8 @@ class SensioEoptThermostat:
 class SensioEoptModeSelector:
     """
     A zone or house-wide mode selector (home / away / night / vacation).
-    Maps to an HA select entity.
+    Each option is exposed as a pressable HA button so the mode can be
+    re-applied even when it is already active.
     """
     unique_id: str              # e.g. "VaskeromMode"
     name: str                   # e.g. "Vaskerom Mode"
