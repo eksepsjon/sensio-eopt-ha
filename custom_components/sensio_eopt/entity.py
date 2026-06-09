@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -26,20 +27,13 @@ class SensioEoptEntity(RestoreEntity):
         self.coordinator = coordinator
         self.device = device
         self._attr_unique_id = f"{DOMAIN}_{device.unique_id}"
-        # The device_info groups all entities under one "device" card in HA
-        self._attr_device_info = {
-            "identifiers": {
-                (DOMAIN, coordinator.controller.host)
-            },
-            "name": "Sensio Eopt Controller",
-            "manufacturer": "Eaton / Sensio Eopt",
-            "model": "X-Comfort Gateway",
-            "sw_version": (
-                coordinator.controller.controller_info.firmware
-                if coordinator.controller.controller_info
-                else None
-            ),
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.unique_id)},
+            name=device.name,
+            manufacturer="Eaton / Sensio Eopt",
+            model=type(device).__name__,
+            via_device=(DOMAIN, coordinator.controller.host),
+        )
 
     # ------------------------------------------------------------------
     # HA lifecycle
