@@ -1,9 +1,9 @@
 """
-Tests for the event parser (sensio/events.py).
+Tests for the event parser (sensio_eopt/events.py).
 """
 
 import pytest
-from sensio.events import parse_event, device_name_from_event
+from sensio_eopt.events import parse_event, device_name_from_event
 
 
 class TestParseEvent:
