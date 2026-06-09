@@ -168,6 +168,42 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
         self.async_write_ha_state()
 
     # ------------------------------------------------------------------
+    # Event handling
+    # ------------------------------------------------------------------
+
+    def _handle_event(self, event) -> None:
+        # Type 23: M_* float register — temperature setpoint (value = °C × TEMP_SCALE)
+        if event.is_register:
+            # B_Vaskerom0533_Temp_Dec → prefix_no_b = "Vaskerom0533"
+            prefix_no_b = self.device.func_dec.split("_Temp_Dec")[0][2:]
+            if event.name.startswith("M_" + prefix_no_b):
+                temp = event.float_value / TEMP_SCALE
+                if self._attr_min_temp <= temp <= self._attr_max_temp:
+                    self.device.target_temperature = temp
+                    self._attr_target_temperature = temp
+                    self.async_write_ha_state()
+        elif event.is_trigger:
+            # Increment/decrement buttons — adjust optimistic setpoint
+            if event.name == self.device.func_inc:
+                new_temp = min(self.device.target_temperature + 0.5, self._attr_max_temp)
+                self.device.target_temperature = new_temp
+                self._attr_target_temperature = new_temp
+                self.async_write_ha_state()
+            elif event.name == self.device.func_dec:
+                new_temp = max(self.device.target_temperature - 0.5, self._attr_min_temp)
+                self.device.target_temperature = new_temp
+                self._attr_target_temperature = new_temp
+                self.async_write_ha_state()
+            elif self._mode_selector:
+                # Zone mode changed externally (physical button / other HA instance)
+                for mode_key, func in self._mode_selector.options.items():
+                    if event.name == func:
+                        self._mode_selector.current_option = mode_key
+                        self._attr_hvac_mode = HVACMode.OFF if mode_key == "away" else HVACMode.HEAT
+                        self.async_write_ha_state()
+                        break
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 

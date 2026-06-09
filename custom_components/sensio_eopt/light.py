@@ -167,6 +167,14 @@ class SensioEoptDimmerEntity(SensioEoptEntity, LightEntity):
             if event.name == expected_d:
                 self.device.brightness_pct = max(0, min(100, event.int_value))
                 self.async_write_ha_state()
+        # Type 23: M_D_*_Val float register — same info as D_* but as a float
+        elif event.is_register:
+            # B_D_Hall2etgHallTrappEntre_SET → M_D_Hall2etgHallTrappEntre_Val
+            expected_m = "M_" + self.device.func_set[2:-4] + "_Val"  # strip B_ and _SET
+            if event.name == expected_m:
+                pct = max(0, min(100, int(round(event.float_value))))
+                self.device.brightness_pct = pct
+                self.async_write_ha_state()
         # Type 6: function trigger confirmation — just refresh state
         elif event.is_trigger and event.name == self.device.func_set:
             self.async_write_ha_state()
