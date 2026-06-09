@@ -1,5 +1,5 @@
 """
-Pytest configuration for sensio-control tests.
+Pytest configuration for sensio-eopt-control tests.
 
 pytest-homeassistant-custom-component installs pytest-socket which blocks all
 socket creation by default (to prevent tests making real network connections).

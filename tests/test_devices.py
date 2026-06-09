@@ -1,10 +1,10 @@
 """
-Tests for device discovery (sensio/devices.py).
+Tests for device discovery (sensio_eopt/devices.py).
 Uses a small subset of realistic function names.
 """
 
 import pytest
-from sensio.devices import discover_devices, SensioLight, SensioDimmer, SensioRelay
+from sensio_eopt.devices import discover_devices, SensioEoptLight, SensioEoptDimmer, SensioEoptRelay
 
 
 SAMPLE_FUNCTIONS = [

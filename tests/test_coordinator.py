@@ -5,8 +5,8 @@ Uses unittest.mock — no real HA instance or controller required.
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
-from sensio.events import SensioEvent, parse_event
-from sensio.devices import SensioDimmer, SensioLight
+from sensio_eopt.events import SensioEoptEvent, parse_event
+from sensio_eopt.devices import SensioEoptDimmer, SensioEoptLight
 
 
 # ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ from sensio.devices import SensioDimmer, SensioLight
 # ---------------------------------------------------------------------------
 
 def make_dimmer(name="B_D_Hall2etgHallTrappEntre_SET"):
-    return SensioDimmer(
+    return SensioEoptDimmer(
         unique_id=name,
         name="Hall Dimmer",
         func_set=name,
@@ -22,7 +22,7 @@ def make_dimmer(name="B_D_Hall2etgHallTrappEntre_SET"):
     )
 
 def make_light(base="B_LightHallTrappEntre"):
-    return SensioLight(
+    return SensioEoptLight(
         unique_id=base,
         name="Hall Light",
         func_on=base + "_ON",
@@ -45,7 +45,7 @@ def rsn(line):
 class TestStateCache:
     def test_cache_populated_on_event(self):
         """_on_event should update state_cache keyed by event name."""
-        from custom_components.sensio.coordinator import SensioCoordinator
+        from custom_components.sensio_eopt.coordinator import SensioEoptCoordinator
 
         hass = MagicMock()
         hass.async_create_task = MagicMock()
@@ -54,15 +54,15 @@ class TestStateCache:
         controller.add_connection_listener = MagicMock()
         registry = MagicMock()
 
-        with patch("custom_components.sensio.coordinator.async_dispatcher_send"):
-            coord = SensioCoordinator(hass, controller, registry)
+        with patch("custom_components.sensio_eopt.coordinator.async_dispatcher_send"):
+            coord = SensioEoptCoordinator(hass, controller, registry)
             coord._on_event("RSN 49633 D_Hall2etgHallTrappEntre 21 1 69 69")
 
         assert "D_Hall2etgHallTrappEntre" in coord.state_cache
         assert coord.state_cache["D_Hall2etgHallTrappEntre"].int_value == 69
 
     def test_cache_ignores_unparseable(self):
-        from custom_components.sensio.coordinator import SensioCoordinator
+        from custom_components.sensio_eopt.coordinator import SensioEoptCoordinator
 
         hass = MagicMock()
         controller = MagicMock()
@@ -70,14 +70,14 @@ class TestStateCache:
         controller.add_connection_listener = MagicMock()
         registry = MagicMock()
 
-        with patch("custom_components.sensio.coordinator.async_dispatcher_send"):
-            coord = SensioCoordinator(hass, controller, registry)
+        with patch("custom_components.sensio_eopt.coordinator.async_dispatcher_send"):
+            coord = SensioEoptCoordinator(hass, controller, registry)
             coord._on_event("x_bm_st ACK_DIR seq=1")
 
         assert len(coord.state_cache) == 0
 
     def test_get_cached_state(self):
-        from custom_components.sensio.coordinator import SensioCoordinator
+        from custom_components.sensio_eopt.coordinator import SensioEoptCoordinator
 
         hass = MagicMock()
         controller = MagicMock()
@@ -85,8 +85,8 @@ class TestStateCache:
         controller.add_connection_listener = MagicMock()
         registry = MagicMock()
 
-        with patch("custom_components.sensio.coordinator.async_dispatcher_send"):
-            coord = SensioCoordinator(hass, controller, registry)
+        with patch("custom_components.sensio_eopt.coordinator.async_dispatcher_send"):
+            coord = SensioEoptCoordinator(hass, controller, registry)
             coord._on_event("RSN 49633 D_Hall2etgHallTrappEntre 21 1 50 50")
 
         assert coord.get_cached_state("D_Hall2etgHallTrappEntre").int_value == 50
@@ -94,17 +94,17 @@ class TestStateCache:
 
 
 # ---------------------------------------------------------------------------
-# SensioDimmerEntity._handle_event — brightness tracking
+# SensioEoptDimmerEntity._handle_event — brightness tracking
 # ---------------------------------------------------------------------------
 
 class TestDimmerHandleEvent:
     def _make_entity(self, func_set="B_D_Hall2etgHallTrappEntre_SET"):
-        """Build a SensioDimmerEntity with mocked coordinator and HA internals."""
-        from custom_components.sensio.light import SensioDimmerEntity
+        """Build a SensioEoptDimmerEntity with mocked coordinator and HA internals."""
+        from custom_components.sensio_eopt.light import SensioEoptDimmerEntity
 
         device = make_dimmer(func_set)
         coord = MagicMock()
-        entity = SensioDimmerEntity.__new__(SensioDimmerEntity)
+        entity = SensioEoptDimmerEntity.__new__(SensioEoptDimmerEntity)
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()
@@ -152,16 +152,16 @@ class TestDimmerHandleEvent:
 
 
 # ---------------------------------------------------------------------------
-# SensioDimmerEntity.async_turn_on / async_turn_off — protocol calls
+# SensioEoptDimmerEntity.async_turn_on / async_turn_off — protocol calls
 # ---------------------------------------------------------------------------
 
 class TestDimmerTurnOnOff:
     def _make_entity(self):
-        from custom_components.sensio.light import SensioDimmerEntity
+        from custom_components.sensio_eopt.light import SensioEoptDimmerEntity
         device = make_dimmer()
         coord = MagicMock()
         coord.controller.dim = AsyncMock()
-        entity = SensioDimmerEntity.__new__(SensioDimmerEntity)
+        entity = SensioEoptDimmerEntity.__new__(SensioEoptDimmerEntity)
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()
@@ -206,18 +206,18 @@ class TestDimmerTurnOnOff:
 
 
 # ---------------------------------------------------------------------------
-# SensioLightEntity — on/off and scenes
+# SensioEoptLightEntity — on/off and scenes
 # ---------------------------------------------------------------------------
 
 class TestLightEntity:
     def _make_entity(self, scenes=None):
-        from custom_components.sensio.light import SensioLightEntity
+        from custom_components.sensio_eopt.light import SensioEoptLightEntity
         device = make_light()
         if scenes:
             device.scenes = scenes
         coord = MagicMock()
         coord.controller.trigger = AsyncMock()
-        entity = SensioLightEntity.__new__(SensioLightEntity)
+        entity = SensioEoptLightEntity.__new__(SensioEoptLightEntity)
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()

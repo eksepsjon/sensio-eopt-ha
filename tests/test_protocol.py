@@ -1,10 +1,10 @@
 """
-Tests for the SMUX protocol layer (sensio/local.py).
+Tests for the SMUX protocol layer (sensio_eopt/local.py).
 No network connection required — all tests use in-process mocks.
 """
 
 import pytest
-from sensio.local import _smux_encode, _smux_parse, LocalClient
+from sensio_eopt.local import _smux_encode, _smux_parse, LocalClient
 
 
 # ---------------------------------------------------------------------------
