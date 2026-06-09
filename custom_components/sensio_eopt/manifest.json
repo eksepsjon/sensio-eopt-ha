@@ -1,9 +1,9 @@
 {
-  "domain": "sensio",
-  "name": "Sensio / X-Comfort",
+  "domain": "sensio_eopt",
+  "name": "Sensio Eopt / X-Comfort",
   "version": "0.2.0",
-  "documentation": "https://github.com/eksepsjon/sensio-control",
-  "issue_tracker": "https://github.com/eksepsjon/sensio-control/issues",
+  "documentation": "https://github.com/eksepsjon/sensio-eopt-control",
+  "issue_tracker": "https://github.com/eksepsjon/sensio-eopt-control/issues",
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@eksepsjon"],

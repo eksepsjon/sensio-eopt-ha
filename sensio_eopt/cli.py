@@ -1,16 +1,16 @@
 """
-sensio CLI — control Sensio/X-Comfort smart home installations.
+sensio_eopt CLI — control Sensio Eopt / X-Comfort smart home installations.
 
 Credentials come from the supplier-provided smarthome.bash script.
 No OAuth2 or cloud API required for local LAN control.
 
 Quick start:
-    sensio config -f smarthome.bash --controller-ip 192.168.x.x
+    sensio_eopt config -f smarthome.bash --controller-ip 192.168.x.x
 
-    sensio list
-    sensio run "Kitchen/Stue Light On"
-    sensio run B_LightKjkkenStue_ON
-    sensio monitor
+    sensio_eopt list
+    sensio_eopt run "Kitchen/Stue Light On"
+    sensio_eopt run B_LightKjkkenStue_ON
+    sensio_eopt monitor
 """
 
 from __future__ import annotations
@@ -42,9 +42,9 @@ console = Console()
 def _require_config() -> dict:
     if not is_configured():
         console.print(
-            "[red]Not configured.[/red] Run [bold]sensio setup[/bold] first.\n"
+            "[red]Not configured.[/red] Run [bold]sensio_eopt setup[/bold] first.\n"
             "Get the credentials from your supplier's smarthome.bash script:\n"
-            "  sensio setup --token-id TOKEN --token-secret SECRET --controller-ip IP"
+            "  sensio_eopt setup --token-id TOKEN --token-secret SECRET --controller-ip IP"
         )
         sys.exit(1)
     return load_credentials()
@@ -56,7 +56,7 @@ def _require_config() -> dict:
 
 @click.group()
 def cli() -> None:
-    """Sensio/X-Comfort smart home CLI."""
+    """Sensio Eopt / X-Comfort smart home CLI."""
 
 
 # ---------------------------------------------------------------------------
@@ -64,11 +64,11 @@ def cli() -> None:
 # ---------------------------------------------------------------------------
 
 @cli.command()
-@click.option("--token-id", required=True, envvar="SENSIO_TOKEN_ID",
+@click.option("--token-id", required=True, envvar="SENSIO_EOPT_TOKEN_ID",
               help="Token GUID (from smarthome.bash 'token=' line)")
-@click.option("--token-secret", required=True, envvar="SENSIO_TOKEN_SECRET",
+@click.option("--token-secret", required=True, envvar="SENSIO_EOPT_TOKEN_SECRET",
               help="Token secret (from smarthome.bash 'secret=' line)")
-@click.option("--controller-ip", required=True, envvar="SENSIO_CONTROLLER_IP",
+@click.option("--controller-ip", required=True, envvar="SENSIO_EOPT_CONTROLLER_IP",
               help="Controller LAN IP (check your router's DHCP table)")
 def setup(token_id: str, token_secret: str, controller_ip: str) -> None:
     """Save controller credentials from the supplier's smarthome.bash script.
@@ -80,7 +80,7 @@ def setup(token_id: str, token_secret: str, controller_ip: str) -> None:
       controller IP: check your router's DHCP table or run  arp -a
     """
     save_credentials(token_id, token_secret, controller_ip)
-    console.print(f"[green]Saved.[/green] Credentials stored in ~/.sensio/config.json")
+    console.print(f"[green]Saved.[/green] Credentials stored in ~/.sensio_eopt/config.json")
 
     # Quick connectivity test
     console.print(f"Testing connection to {controller_ip}:10023 …")
@@ -108,15 +108,15 @@ def forget() -> None:
     type=click.Path(exists=True, readable=True, dir_okay=False),
     help="Path to smarthome.bash",
 )
-@click.option("--controller-ip", envvar="SENSIO_CONTROLLER_IP",
+@click.option("--controller-ip", envvar="SENSIO_EOPT_CONTROLLER_IP",
               help="Controller LAN IP (check your router's DHCP table or run: arp -a)")
 def config_from_script(script_file: str, controller_ip: str | None) -> None:
     """Configure from a smarthome.bash script file.
 
     \b
     Examples:
-        sensio config -f smarthome.bash --controller-ip 192.168.1.x
-        sensio config -f ~/Downloads/smarthome.bash
+        sensio_eopt config -f smarthome.bash --controller-ip 192.168.1.x
+        sensio_eopt config -f ~/Downloads/smarthome.bash
     """
     text = click.open_file(script_file).read()
     try:
@@ -135,13 +135,13 @@ def config_from_script(script_file: str, controller_ip: str | None) -> None:
         console.print(
             f"\n[yellow]Controller IP not provided.[/yellow] "
             f"Find it with:\n  arp -a | findstr {mac}\n"
-            "Then re-run with [bold]--controller-ip[/bold], or set [bold]SENSIO_CONTROLLER_IP[/bold]."
+            "Then re-run with [bold]--controller-ip[/bold], or set [bold]SENSIO_EOPT_CONTROLLER_IP[/bold]."
         )
         raise SystemExit(1)
 
     save_credentials(token_id, token_secret, controller_ip)
     save_functions(functions)
-    console.print(f"\n[green]Saved.[/green] Credentials and functions stored in ~/.sensio/")
+    console.print(f"\n[green]Saved.[/green] Credentials and functions stored in ~/.sensio_eopt/")
 
     console.print(f"Testing connection to {controller_ip}:10023 …")
     try:
@@ -194,10 +194,10 @@ def run(function_name: str, value: int, dry_run: bool) -> None:
 
     \b
     Examples:
-        sensio run "Kjøkken/Stue Light On"
-        sensio run "kitchen light on"           # case-insensitive partial match
-        sensio run B_LightKjkkenStue_ON
-        sensio run B_D_KjkkenyKjkkenStue_SET --value 200
+        sensio_eopt run "Kjøkken/Stue Light On"
+        sensio_eopt run "kitchen light on"           # case-insensitive partial match
+        sensio_eopt run B_LightKjkkenStue_ON
+        sensio_eopt run B_D_KjkkenyKjkkenStue_SET --value 200
     """
     # Resolve: exact internal name or display name search
     if function_name.startswith("B_"):
@@ -211,7 +211,7 @@ def run(function_name: str, value: int, dry_run: bool) -> None:
         if result is None:
             console.print(
                 f"[red]No function found matching[/red] {function_name!r}\n"
-                "Run [bold]sensio list[/bold] to see all available functions."
+                "Run [bold]sensio_eopt list[/bold] to see all available functions."
             )
             sys.exit(1)
         matched_func, matched_label = result
@@ -252,9 +252,9 @@ def dim(set_action: str, percent: int, dry_run: bool) -> None:
 
     \b
     SET_ACTION is the B_D_*_SET function name, e.g.:
-        sensio dim B_D_Hall2etgHallTrappEntre_SET 50
-        sensio dim B_D_Hall2etgHallTrappEntre_SET 0    # off
-        sensio dim B_D_Hall2etgHallTrappEntre_SET 100  # full
+        sensio_eopt dim B_D_Hall2etgHallTrappEntre_SET 50
+        sensio_eopt dim B_D_Hall2etgHallTrappEntre_SET 0    # off
+        sensio_eopt dim B_D_Hall2etgHallTrappEntre_SET 100  # full
 
     The controller uses a two-message protocol:
       set_value M_D_{name}_Val {percent}
@@ -263,7 +263,7 @@ def dim(set_action: str, percent: int, dry_run: bool) -> None:
     if not (set_action.startswith("B_D_") and set_action.endswith("_SET")):
         console.print(
             f"[red]Error:[/red] SET_ACTION must be a B_D_*_SET name, got {set_action!r}\n"
-            "Run [bold]sensio list[/bold] and look for B_D_* entries."
+            "Run [bold]sensio_eopt list[/bold] and look for B_D_* entries."
         )
         sys.exit(1)
 
@@ -380,16 +380,16 @@ def state(timeout: float) -> None:
 
     \b
     Tips:
-      - Run `sensio monitor` for a while first to build the ID cache
-        (~/.sensio/id_cache.json) — after that, state is fetched actively
+      - Run `sensio_eopt monitor` for a while first to build the ID cache
+        (~/.sensio_eopt/id_cache.json) — after that, state is fetched actively
       - Without a cache, only devices that changed recently will appear
-      - Dimmer levels are 0-100 (percent); use `sensio dim` to set them
+      - Dimmer levels are 0-100 (percent); use `sensio_eopt dim` to set them
     """
     creds = _require_config()
 
-    # Collect: name -> latest SensioEvent
-    from .events import SensioEvent
-    latest: dict[str, SensioEvent] = {}
+    # Collect: name -> latest SensioEoptEvent
+    from .events import SensioEoptEvent
+    latest: dict[str, SensioEoptEvent] = {}
 
     def on_event(line: str) -> None:
         evt = parse_event(line)
@@ -410,7 +410,7 @@ def state(timeout: float) -> None:
     else:
         console.print(
             f"[yellow]No ID cache yet[/yellow] - collecting passively for {timeout}s.\n"
-            f"[dim]Run [bold]sensio monitor[/bold] to build the cache for faster state queries.[/dim]"
+            f"[dim]Run [bold]sensio_eopt monitor[/bold] to build the cache for faster state queries.[/dim]"
         )
 
     try:
@@ -478,7 +478,7 @@ def state(timeout: float) -> None:
 def status() -> None:
     """Show current configuration."""
     if not is_configured():
-        console.print("[yellow]Not configured.[/yellow] Run `sensio setup` first.")
+        console.print("[yellow]Not configured.[/yellow] Run `sensio_eopt setup` first.")
         return
     creds = load_credentials()
     t = Table(title="Current configuration")
@@ -488,4 +488,4 @@ def status() -> None:
     t.add_row("token_id", creds["token_id"])
     t.add_row("token_secret", creds["token_secret"][:6] + "…")
     console.print(t)
-    console.print(f"[dim]Config file: ~/.sensio/config.json[/dim]")
+    console.print(f"[dim]Config file: ~/.sensio_eopt/config.json[/dim]")

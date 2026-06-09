@@ -1,7 +1,7 @@
 """
-Local LAN TCP client for Sensio/X-Comfort controllers.
+Local LAN TCP client for Sensio Eopt / X-Comfort controllers.
 
-Protocol details reverse-engineered from Sensio.ControllerClient.Lite.dll.
+Protocol details reverse-engineered from Sensio Eopt.ControllerClient.Lite.dll.
 
 Connection:
   - Host: controller local IP (e.g. 192.168.68.119)
@@ -131,7 +131,7 @@ def _attr(s: str, name: str) -> str:
 
 class LocalClient:
     """
-    Connects to a Sensio controller on the local network using SMUX framing.
+    Connects to a Sensio Eopt controller on the local network using SMUX framing.
 
     Usage (blocking / scripted):
         client = LocalClient("192.168.68.119", token_id, token_secret)

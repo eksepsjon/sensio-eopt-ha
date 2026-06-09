@@ -1,11 +1,11 @@
 """
-Object ID cache for the Sensio controller.
+Object ID cache for the Sensio Eopt controller.
 
 Stores name -> numeric controller ID mappings discovered from RSN events.
-Persisted to ~/.sensio/id_cache.json so d_obj queries work across sessions.
+Persisted to ~/.sensio_eopt/id_cache.json so d_obj queries work across sessions.
 
 Note: This module is used by the async controller to pre-populate state
-on connect. The cache lives in the HA host's home directory under ~/.sensio/.
+on connect. The cache lives in the HA host's home directory under ~/.sensio_eopt/.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-CONFIG_DIR = Path.home() / ".sensio"
+CONFIG_DIR = Path.home() / ".sensio_eopt"
 ID_CACHE_FILE = CONFIG_DIR / "id_cache.json"
 
 

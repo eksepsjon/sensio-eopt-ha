@@ -1,7 +1,7 @@
 """
-Sensio climate platform — floor heating thermostats.
+Sensio Eopt climate platform — floor heating thermostats.
 
-Each SensioThermostat becomes an HA climate entity with:
+Each SensioEoptThermostat becomes an HA climate entity with:
   - HVAC mode: "heat" only (floor heating is always on unless in away mode)
   - Preset modes: Home / Away / Night / Vacation  (via zone ModeSelector funcs)
   - set_temperature: uses the _Set function with value = int(°C × 10)
@@ -30,10 +30,10 @@ from homeassistant.const import PRECISION_HALVES, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .lib.devices import SensioModeSelector, SensioThermostat
+from .lib.devices import SensioEoptModeSelector, SensioEoptThermostat
 
-from .coordinator import SensioCoordinator
-from .entity import SensioEntity
+from .coordinator import SensioEoptCoordinator
+from .entity import SensioEoptEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,25 +59,25 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: SensioCoordinator = entry.runtime_data
+    coordinator: SensioEoptCoordinator = entry.runtime_data
     reg = coordinator.device_registry
 
     # Build a mapping from zone_key → mode selector.
-    # Both SensioThermostat and SensioModeSelector carry the same zone_key
+    # Both SensioEoptThermostat and SensioEoptModeSelector carry the same zone_key
     # derived from the internal function name prefix (e.g. "vaskerom").
-    mode_by_zone: dict[str, SensioModeSelector] = {
+    mode_by_zone: dict[str, SensioEoptModeSelector] = {
         ms.zone_key: ms for ms in reg.mode_selectors
     }
 
     entities = []
     for thermo in reg.thermostats:
         mode_sel = mode_by_zone.get(thermo.zone_key)
-        entities.append(SensioClimateEntity(coordinator, thermo, mode_sel))
+        entities.append(SensioEoptClimateEntity(coordinator, thermo, mode_sel))
 
     async_add_entities(entities)
 
 
-class SensioClimateEntity(SensioEntity, ClimateEntity):
+class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
     """Floor heating thermostat zone."""
 
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
@@ -90,9 +90,9 @@ class SensioClimateEntity(SensioEntity, ClimateEntity):
 
     def __init__(
         self,
-        coordinator: SensioCoordinator,
-        device: SensioThermostat,
-        mode_selector: SensioModeSelector | None,
+        coordinator: SensioEoptCoordinator,
+        device: SensioEoptThermostat,
+        mode_selector: SensioEoptModeSelector | None,
     ) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name

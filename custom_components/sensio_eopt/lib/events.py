@@ -1,5 +1,5 @@
 """
-Event parser for the Sensio/X-Comfort local SMUX protocol.
+Event parser for the Sensio Eopt / X-Comfort local SMUX protocol.
 
 The controller sends SMUX-framed messages (\x01{body}\x02).  After
 stripping the framing the body is plain text in one of these forms:
@@ -52,7 +52,7 @@ _DIRECT_RE = re.compile(
 
 
 @dataclass
-class SensioEvent:
+class SensioEoptEvent:
     """A single parsed event from the controller."""
     name: str            # object / function name (B_* / D_* / M_*)
     type_id: int         # 6 = trigger, 21 = int device, 23 = float register
@@ -96,9 +96,9 @@ class SensioEvent:
         return self.int_value > 0
 
 
-def parse_event(line: str) -> Optional[SensioEvent]:
+def parse_event(line: str) -> Optional[SensioEoptEvent]:
     """
-    Parse one SMUX message body into a SensioEvent.
+    Parse one SMUX message body into a SensioEoptEvent.
     Returns None for keepalive lines (x_bm_st, PANEL_BRIGHTNESS, end ...) and
     anything unrecognised.
     """
@@ -110,7 +110,7 @@ def parse_event(line: str) -> Optional[SensioEvent]:
     m = _RSN_RE.match(line)
     if m:
         seq, name, type_id, _en, _st, value = m.groups()
-        return SensioEvent(name=name, type_id=int(type_id), value_raw=value, seq=int(seq))
+        return SensioEoptEvent(name=name, type_id=int(type_id), value_raw=value, seq=int(seq))
 
     # Direct device state: {name} {typeId} {enabled} {state} {value}
     # Only match B_*/D_*/M_* names to avoid false positives on keepalives
@@ -118,12 +118,12 @@ def parse_event(line: str) -> Optional[SensioEvent]:
     if m:
         name, type_id, _en, _st, value = m.groups()
         if name[1:2] == "_":  # B_, D_, M_, etc.
-            return SensioEvent(name=name, type_id=int(type_id), value_raw=value)
+            return SensioEoptEvent(name=name, type_id=int(type_id), value_raw=value)
 
     return None
 
 
-def device_name_from_event(event: SensioEvent) -> Optional[str]:
+def device_name_from_event(event: SensioEoptEvent) -> Optional[str]:
     """
     Map a D_* event name back to the corresponding B_D_* function name.
 

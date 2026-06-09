@@ -1,5 +1,5 @@
 """
-Sensio coordinator — owns the controller connection and dispatches events.
+Sensio Eopt coordinator — owns the controller connection and dispatches events.
 
 Rather than using DataUpdateCoordinator (which is poll-oriented) we use a
 simple class that holds the persistent async connection and fans out incoming
@@ -16,18 +16,18 @@ from typing import Optional
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .lib.controller import SensioController
+from .lib.controller import SensioEoptController
 from .lib.devices import DeviceRegistry
-from .lib.events import SensioEvent, parse_event
+from .lib.events import SensioEoptEvent, parse_event
 
 from .const import SIGNAL_CONNECTED, SIGNAL_EVENT
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SensioCoordinator:
+class SensioEoptCoordinator:
     """
-    Manages the TCP connection to one Sensio controller.
+    Manages the TCP connection to one Sensio Eopt controller.
 
     Lifecycle (managed by __init__.py):
         await coordinator.async_start()   # begin connect-with-retry loop
@@ -37,7 +37,7 @@ class SensioCoordinator:
     def __init__(
         self,
         hass: HomeAssistant,
-        controller: SensioController,
+        controller: SensioEoptController,
         device_registry: DeviceRegistry,
     ) -> None:
         self.hass = hass
@@ -48,7 +48,7 @@ class SensioCoordinator:
         # Cache of latest event per object name — keyed by event.name
         # Populated as RSN/SSN events arrive; lets entities get current state
         # immediately when they subscribe rather than waiting for the next event.
-        self.state_cache: dict[str, SensioEvent] = {}
+        self.state_cache: dict[str, SensioEoptEvent] = {}
 
         # Wire up controller callbacks → HA dispatcher
         controller.add_listener(self._on_event)
@@ -62,7 +62,7 @@ class SensioCoordinator:
         """Start the persistent connect-with-retry loop."""
         self._retry_task = self.hass.async_create_task(
             self.controller.connect_with_retry(),
-            name="sensio_connect",
+            name="sensio_eopt_connect",
         )
 
     async def async_stop(self) -> None:
@@ -79,7 +79,7 @@ class SensioCoordinator:
     # Internal callbacks
     # ------------------------------------------------------------------
 
-    def get_cached_state(self, name: str) -> Optional[SensioEvent]:
+    def get_cached_state(self, name: str) -> Optional[SensioEoptEvent]:
         """Return the latest known event for a given object name, or None."""
         return self.state_cache.get(name)
 
@@ -98,5 +98,5 @@ class SensioCoordinator:
     @callback
     def _on_connection_change(self, connected: bool) -> None:
         """Dispatch connection state change."""
-        _LOGGER.info("Sensio controller %s", "connected" if connected else "disconnected")
+        _LOGGER.info("Sensio Eopt controller %s", "connected" if connected else "disconnected")
         async_dispatcher_send(self.hass, SIGNAL_CONNECTED, connected)

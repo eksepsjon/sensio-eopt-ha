@@ -1,7 +1,7 @@
 """
-Sensio select platform — zone and house-wide mode selectors.
+Sensio Eopt select platform — zone and house-wide mode selectors.
 
-Each SensioModeSelector (Home / Away / Night / Vacation per zone) is exposed
+Each SensioEoptModeSelector (Home / Away / Night / Vacation per zone) is exposed
 as an HA select entity so it can be used in automations independently of the
 thermostat preset.
 
@@ -18,10 +18,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .lib.devices import SensioModeSelector
+from .lib.devices import SensioEoptModeSelector
 
-from .coordinator import SensioCoordinator
-from .entity import SensioEntity
+from .coordinator import SensioEoptCoordinator
+from .entity import SensioEoptEntity
 
 # Map internal option keys → display strings shown in HA UI
 OPTION_LABELS = {
@@ -37,18 +37,18 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: SensioCoordinator = entry.runtime_data
+    coordinator: SensioEoptCoordinator = entry.runtime_data
     async_add_entities(
-        SensioSelectEntity(coordinator, ms)
+        SensioEoptSelectEntity(coordinator, ms)
         for ms in coordinator.device_registry.mode_selectors
     )
 
 
-class SensioSelectEntity(SensioEntity, SelectEntity):
+class SensioEoptSelectEntity(SensioEoptEntity, SelectEntity):
     """Zone or house-wide mode selector."""
 
     def __init__(
-        self, coordinator: SensioCoordinator, device: SensioModeSelector
+        self, coordinator: SensioEoptCoordinator, device: SensioEoptModeSelector
     ) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name

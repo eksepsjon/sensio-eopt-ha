@@ -1,19 +1,19 @@
 """
-Device model for a Sensio/X-Comfort installation.
+Device model for a Sensio Eopt / X-Comfort installation.
 
 Parses the flat list of B_* function names into logical device objects
 that map naturally to Home Assistant entity types:
 
-  SensioLight       → HA light  (on/off + lighting scenes)
-  SensioDimmer      → HA light  (brightness 0-100 percent, converted to 0-255 for HA)
-  SensioRelay       → HA switch
-  SensioThermostat  → HA climate (floor heating)
-  SensioModeSelector→ HA select  (home/away/night/vacation per zone)
-  SensioScene       → HA scene / button (house-wide modes, leftover B_* triggers)
+  SensioEoptLight       → HA light  (on/off + lighting scenes)
+  SensioEoptDimmer      → HA light  (brightness 0-100 percent, converted to 0-255 for HA)
+  SensioEoptRelay       → HA switch
+  SensioEoptThermostat  → HA climate (floor heating)
+  SensioEoptModeSelector→ HA select  (home/away/night/vacation per zone)
+  SensioEoptScene       → HA scene / button (house-wide modes, leftover B_* triggers)
 
 Usage:
-    from sensio.devices import discover_devices
-    from sensio.functions import FUNCTIONS
+    from sensio_eopt.devices import discover_devices
+    from sensio_eopt.functions import FUNCTIONS
 
     registry = discover_devices(FUNCTIONS)
     for light in registry.lights:
@@ -32,7 +32,7 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 
 @dataclass
-class SensioLight:
+class SensioEoptLight:
     """A zone light group controllable as on/off with optional scenes."""
     unique_id: str          # e.g. "B_LightUtelys"
     name: str               # e.g. "Utelys Light"
@@ -45,7 +45,7 @@ class SensioLight:
 
 
 @dataclass
-class SensioDimmer:
+class SensioEoptDimmer:
     """A dimmable channel; brightness controlled via a single _SET function."""
     unique_id: str          # e.g. "B_D_SpotlightsKjkkenKjkkenStu"
     name: str               # display name from bash script
@@ -55,7 +55,7 @@ class SensioDimmer:
 
 
 @dataclass
-class SensioRelay:
+class SensioEoptRelay:
     """A binary output (relay) with separate on/off functions."""
     unique_id: str          # e.g. "B_R_UtelysUtelys"
     name: str               # cleaned display name
@@ -66,7 +66,7 @@ class SensioRelay:
 
 
 @dataclass
-class SensioThermostat:
+class SensioEoptThermostat:
     """
     A floor-heating zone thermostat.
 
@@ -91,20 +91,20 @@ class SensioThermostat:
 
 
 @dataclass
-class SensioModeSelector:
+class SensioEoptModeSelector:
     """
     A zone or house-wide mode selector (home / away / night / vacation).
     Maps to an HA select entity.
     """
     unique_id: str              # e.g. "VaskeromMode"
     name: str                   # e.g. "Vaskerom Mode"
-    zone_key: str               # normalised zone key, matches SensioThermostat.zone_key
+    zone_key: str               # normalised zone key, matches SensioEoptThermostat.zone_key
     options: dict[str, str]     # {"home": "B_VaskeromMode_In", "away": ..., ...}
     current_option: str = "home"
 
 
 @dataclass
-class SensioScene:
+class SensioEoptScene:
     """
     A one-shot trigger (alarm reset, house-wide scene, temperature preset).
     Maps to an HA button or HA scene entity.
@@ -117,13 +117,13 @@ class SensioScene:
 
 @dataclass
 class DeviceRegistry:
-    """All discovered devices for one Sensio installation."""
-    lights: list[SensioLight] = field(default_factory=list)
-    dimmers: list[SensioDimmer] = field(default_factory=list)
-    relays: list[SensioRelay] = field(default_factory=list)
-    thermostats: list[SensioThermostat] = field(default_factory=list)
-    mode_selectors: list[SensioModeSelector] = field(default_factory=list)
-    scenes: list[SensioScene] = field(default_factory=list)
+    """All discovered devices for one Sensio Eopt installation."""
+    lights: list[SensioEoptLight] = field(default_factory=list)
+    dimmers: list[SensioEoptDimmer] = field(default_factory=list)
+    relays: list[SensioEoptRelay] = field(default_factory=list)
+    thermostats: list[SensioEoptThermostat] = field(default_factory=list)
+    mode_selectors: list[SensioEoptModeSelector] = field(default_factory=list)
+    scenes: list[SensioEoptScene] = field(default_factory=list)
 
     def all_devices(self):
         """Iterate over every device regardless of type."""
@@ -157,8 +157,8 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
     """
     Parse a list of (internal_name, display_name) tuples into a DeviceRegistry.
 
-    Pass FUNCTIONS from sensio.functions:
-        from sensio.functions import FUNCTIONS
+    Pass FUNCTIONS from sensio_eopt.functions:
+        from sensio_eopt.functions import FUNCTIONS
         registry = discover_devices(FUNCTIONS)
     """
     func_set = {fn for fn, _ in functions}
@@ -172,7 +172,7 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
         if fn.startswith("B_D_"):
             # Display names look like "Spotlights KjøkkenSet" — strip trailing "Set"
             name = lbl[:-3].strip() if lbl.endswith("Set") else lbl
-            registry.dimmers.append(SensioDimmer(
+            registry.dimmers.append(SensioEoptDimmer(
                 unique_id=fn,
                 name=name,
                 func_set=fn,
@@ -190,7 +190,7 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
             base   = m.group(1)      # "B_R_UtelysUtelys"
             fn_off = base + "_OFF"
             name   = lbl[:-2].strip() if lbl.endswith("On") else lbl
-            registry.relays.append(SensioRelay(
+            registry.relays.append(SensioEoptRelay(
                 unique_id=base,
                 name=name,
                 func_on=fn,
@@ -225,7 +225,7 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
             zone_key_raw = base[7:]   # e.g. "Utelys", "KjkkenStue"
             zone_display[zone_key_raw.lower()] = zone_name
 
-            registry.lights.append(SensioLight(
+            registry.lights.append(SensioEoptLight(
                 unique_id=base,
                 name=name,
                 func_on=fn,
@@ -269,7 +269,7 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
 
             unique = raw_key  # e.g. "Vaskerom0533"
 
-            registry.thermostats.append(SensioThermostat(
+            registry.thermostats.append(SensioEoptThermostat(
                 unique_id=unique,
                 name=name,
                 zone_key=zone_key,
@@ -311,7 +311,7 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
             zone_display_name = zone_display.get(zone_key, raw_zone)
             name = zone_display_name + " Mode"
 
-            registry.mode_selectors.append(SensioModeSelector(
+            registry.mode_selectors.append(SensioEoptModeSelector(
                 unique_id=base,
                 name=name,
                 zone_key=zone_key,
@@ -325,7 +325,7 @@ def discover_devices(functions: list[tuple[str, str]]) -> DeviceRegistry:
     # ------------------------------------------------------------------
     for fn, lbl in functions:
         if fn not in consumed:
-            registry.scenes.append(SensioScene(
+            registry.scenes.append(SensioEoptScene(
                 unique_id=fn,
                 name=lbl,
                 func=fn,

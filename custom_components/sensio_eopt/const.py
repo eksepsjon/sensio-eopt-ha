@@ -1,6 +1,6 @@
-"""Constants for the Sensio / X-Comfort integration."""
+"""Constants for the Sensio Eopt / X-Comfort integration."""
 
-DOMAIN = "sensio"
+DOMAIN = "sensio_eopt"
 
 # Config entry keys
 CONF_TOKEN_ID     = "token_id"

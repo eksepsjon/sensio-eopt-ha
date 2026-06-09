@@ -11,8 +11,8 @@ Flow:
 
 The client_id / client_secret for the delegation endpoint are not shipped
 in the SDK binary but CAN be obtained by capturing live traffic (mitmproxy).
-Once known, set them via `sensio login --client-id ... --client-secret ...`
-or the environment variables SENSIO_CLIENT_ID / SENSIO_CLIENT_SECRET.
+Once known, set them via `sensio_eopt login --client-id ... --client-secret ...`
+or the environment variables SENSIO_EOPT_CLIENT_ID / SENSIO_EOPT_CLIENT_SECRET.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from typing import Optional
 import httpx
 import keyring
 
-SERVICE = "sensio-control"
+SERVICE = "sensio-eopt-control"
 KEY_ACCESS_TOKEN = "access_token"
 KEY_BASE_URL = "base_url"
 

@@ -1,4 +1,4 @@
-"""Config flow for Sensio / X-Comfort integration."""
+"""Config flow for Sensio Eopt / X-Comfort integration."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST
 
-from .lib.controller import SensioController
+from .lib.controller import SensioEoptController
 
 from .const import CONF_FUNCTIONS, CONF_TOKEN_ID, CONF_TOKEN_SECRET, DOMAIN
 
@@ -60,8 +60,8 @@ def _parse_smarthome_bash(
     return _field("token"), _field("secret"), _field("mac"), functions
 
 
-class SensioConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle the initial setup UI for Sensio."""
+class SensioEoptConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle the initial setup UI for Sensio Eopt."""
 
     VERSION = 1
 
@@ -105,7 +105,7 @@ class SensioConfigFlow(ConfigFlow, domain=DOMAIN):
             host = user_input[CONF_HOST].strip()
 
             try:
-                controller = SensioController(host, self._token_id, self._token_secret)
+                controller = SensioEoptController(host, self._token_id, self._token_secret)
                 info = await controller.connect()
                 await controller.disconnect()
             except asyncio.TimeoutError:
@@ -113,7 +113,7 @@ class SensioConfigFlow(ConfigFlow, domain=DOMAIN):
             except OSError:
                 errors["base"] = "cannot_connect"
             except Exception:
-                _LOGGER.exception("Unexpected error during Sensio setup")
+                _LOGGER.exception("Unexpected error during Sensio Eopt setup")
                 errors["base"] = "unknown"
             else:
                 await self.async_set_unique_id(
@@ -122,7 +122,7 @@ class SensioConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title=f"Sensio ({host})",
+                    title=f"Sensio Eopt ({host})",
                     data={
                         CONF_HOST:         host,
                         CONF_TOKEN_ID:     self._token_id,

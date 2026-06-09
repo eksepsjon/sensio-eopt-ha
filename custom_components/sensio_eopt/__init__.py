@@ -1,10 +1,10 @@
 """
-Sensio / X-Comfort local LAN integration for Home Assistant.
+Sensio Eopt / X-Comfort local LAN integration for Home Assistant.
 
 Sets up a persistent TCP connection to the controller (port 10023) and
 exposes all devices as HA entities.  No cloud connection required.
 
-Setup: Configuration > Integrations > Add Integration > Sensio / X-Comfort
+Setup: Configuration > Integrations > Add Integration > Sensio Eopt / X-Comfort
 Credentials come from the supplier-provided smarthome.bash script.
 """
 
@@ -17,38 +17,38 @@ from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .lib.controller import SensioController
+from .lib.controller import SensioEoptController
 from .lib.devices import discover_devices
 
 from .const import CONF_FUNCTIONS, CONF_TOKEN_ID, CONF_TOKEN_SECRET, DOMAIN, PLATFORMS
-from .coordinator import SensioCoordinator
+from .coordinator import SensioEoptCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 # Type alias (ConfigEntry carrying our coordinator as runtime_data)
-SensioConfigEntry = ConfigEntry  # type: ignore[type-arg]
+SensioEoptConfigEntry = ConfigEntry  # type: ignore[type-arg]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Sensio from a config entry."""
+    """Set up Sensio Eopt from a config entry."""
     host         = entry.data[CONF_HOST]
     token_id     = entry.data[CONF_TOKEN_ID]
     token_secret = entry.data[CONF_TOKEN_SECRET]
 
-    controller = SensioController(host, token_id, token_secret)
+    controller = SensioEoptController(host, token_id, token_secret)
 
     # Attempt an initial connection to verify credentials before proceeding
     try:
         await controller.connect()
     except Exception as exc:
         raise ConfigEntryNotReady(
-            f"Cannot connect to Sensio controller at {host}:10023 — {exc}"
+            f"Cannot connect to Sensio Eopt controller at {host}:10023 — {exc}"
         ) from exc
 
     functions = [tuple(pair) for pair in entry.data.get(CONF_FUNCTIONS, [])]
     device_registry = discover_devices(functions)
 
-    coordinator = SensioCoordinator(hass, controller, device_registry)
+    coordinator = SensioEoptCoordinator(hass, controller, device_registry)
     entry.runtime_data = coordinator
 
     # Start the reconnect loop (initial connect already done above)
@@ -62,7 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    coordinator: SensioCoordinator = entry.runtime_data
+    coordinator: SensioEoptCoordinator = entry.runtime_data
     await coordinator.async_stop()
     return await hass.config_entries.async_unload_platforms(
         entry, [Platform(p) for p in PLATFORMS]

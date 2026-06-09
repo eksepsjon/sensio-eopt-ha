@@ -1,7 +1,7 @@
 """
-Sensio switch platform.
+Sensio Eopt switch platform.
 
-Exposes SensioRelay devices (B_R_*_ON / B_R_*_OFF) as HA switch entities.
+Exposes SensioEoptRelay devices (B_R_*_ON / B_R_*_OFF) as HA switch entities.
 State is optimistic.
 """
 
@@ -14,10 +14,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .lib.devices import SensioRelay
+from .lib.devices import SensioEoptRelay
 
-from .coordinator import SensioCoordinator
-from .entity import SensioEntity
+from .coordinator import SensioEoptCoordinator
+from .entity import SensioEoptEntity
 
 
 async def async_setup_entry(
@@ -25,17 +25,17 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: SensioCoordinator = entry.runtime_data
+    coordinator: SensioEoptCoordinator = entry.runtime_data
     async_add_entities(
-        SensioSwitchEntity(coordinator, relay)
+        SensioEoptSwitchEntity(coordinator, relay)
         for relay in coordinator.device_registry.relays
     )
 
 
-class SensioSwitchEntity(SensioEntity, SwitchEntity):
-    """A Sensio relay output as an HA switch."""
+class SensioEoptSwitchEntity(SensioEoptEntity, SwitchEntity):
+    """A Sensio Eopt relay output as an HA switch."""
 
-    def __init__(self, coordinator: SensioCoordinator, device: SensioRelay) -> None:
+    def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptRelay) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name
 

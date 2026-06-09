@@ -1,13 +1,13 @@
 """
-Controller function index for this Sensio installation.
+Controller function index for this Sensio Eopt installation.
 
-Loaded from ~/.sensio/functions.json (written by `sensio config -f smarthome.bash`).
+Loaded from ~/.sensio_eopt/functions.json (written by `sensio_eopt config -f smarthome.bash`).
 Run that command first; FUNCTIONS will be empty until then.
 
 Each entry: (internal_name, display_name).
 
 Usage:
-    from sensio.functions import FUNCTIONS, find_function
+    from sensio_eopt.functions import FUNCTIONS, find_function
     fn = find_function("kitchen light on")
     # fn -> ("B_LightKjkkenStue_ON", "Kjøkken/Stue Light On")
 """

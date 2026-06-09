@@ -1,7 +1,7 @@
 """
-Configuration management for sensio-control.
+Configuration management for sensio-eopt-control.
 
-Credentials are stored in ~/.sensio/config.json.
+Credentials are stored in ~/.sensio_eopt/config.json.
 They come from the supplier-provided smarthome.bash script:
     token  → token_id   (UUID, used as tokenId in LOCAL TCP LOGIN-TO)
     secret → token_secret
@@ -59,7 +59,7 @@ def parse_smarthome_bash(
     return _field("token"), _field("secret"), _field("mac"), functions
 
 
-CONFIG_DIR = Path.home() / ".sensio"
+CONFIG_DIR = Path.home() / ".sensio_eopt"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 

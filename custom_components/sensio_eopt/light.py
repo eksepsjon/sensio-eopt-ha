@@ -1,9 +1,9 @@
 """
-Sensio light platform.
+Sensio Eopt light platform.
 
 Two entity types:
-  SensioLightEntity  — zone light group (on/off + up to 4 lighting scenes)
-  SensioDimmerEntity — single dimmable channel (brightness 0-255)
+  SensioEoptLightEntity  — zone light group (on/off + up to 4 lighting scenes)
+  SensioEoptDimmerEntity — single dimmable channel (brightness 0-255)
 
 State is optimistic: assumed correct after each command, then refined when
 the controller echoes back an RPC event for the triggered function.
@@ -24,10 +24,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .lib.devices import SensioDimmer, SensioLight
+from .lib.devices import SensioEoptDimmer, SensioEoptLight
 
-from .coordinator import SensioCoordinator
-from .entity import SensioEntity
+from .coordinator import SensioEoptCoordinator
+from .entity import SensioEoptEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,14 +37,14 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: SensioCoordinator = entry.runtime_data
+    coordinator: SensioEoptCoordinator = entry.runtime_data
     reg = coordinator.device_registry
 
     entities: list[LightEntity] = []
     for light in reg.lights:
-        entities.append(SensioLightEntity(coordinator, light))
+        entities.append(SensioEoptLightEntity(coordinator, light))
     for dimmer in reg.dimmers:
-        entities.append(SensioDimmerEntity(coordinator, dimmer))
+        entities.append(SensioEoptDimmerEntity(coordinator, dimmer))
 
     async_add_entities(entities)
 
@@ -53,13 +53,13 @@ async def async_setup_entry(
 # Light group (on/off)
 # ---------------------------------------------------------------------------
 
-class SensioLightEntity(SensioEntity, LightEntity):
+class SensioEoptLightEntity(SensioEoptEntity, LightEntity):
     """Zone light group with on/off control and optional scenes."""
 
     _attr_color_mode = ColorMode.ONOFF
     _attr_supported_color_modes = {ColorMode.ONOFF}
 
-    def __init__(self, coordinator: SensioCoordinator, device: SensioLight) -> None:
+    def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptLight) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name
         self._attr_is_on = device.is_on
@@ -122,7 +122,7 @@ class SensioLightEntity(SensioEntity, LightEntity):
 # Dimmer channel (brightness 0-255)
 # ---------------------------------------------------------------------------
 
-class SensioDimmerEntity(SensioEntity, LightEntity):
+class SensioEoptDimmerEntity(SensioEoptEntity, LightEntity):
     """Single dimmable channel.
 
     The controller uses 0-100 (percent) internally.
@@ -132,7 +132,7 @@ class SensioDimmerEntity(SensioEntity, LightEntity):
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
 
-    def __init__(self, coordinator: SensioCoordinator, device: SensioDimmer) -> None:
+    def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptDimmer) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name
 

@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Sensio / X-Comfort controller",
+        "title": "Connect to Sensio Eopt / X-Comfort controller",
         "description": "Paste the contents of your **smarthome.bash** script below. The credentials will be extracted automatically.",
         "data": {
           "script": "smarthome.bash contents"

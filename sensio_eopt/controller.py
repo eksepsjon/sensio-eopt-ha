@@ -1,5 +1,5 @@
 """
-Async TCP client for Sensio/X-Comfort controllers.
+Async TCP client for Sensio Eopt / X-Comfort controllers.
 
 Uses asyncio.StreamReader/StreamWriter — runs inside Home Assistant's event loop
 or any other asyncio application.  The sync LocalClient in local.py remains
@@ -7,7 +7,7 @@ available for the CLI and simple scripts.
 
 Typical usage in Home Assistant:
 
-    controller = SensioController(host, token_id, token_secret)
+    controller = SensioEoptController(host, token_id, token_secret)
     controller.add_listener(my_event_callback)
     asyncio.create_task(controller.connect_with_retry())
     ...
@@ -34,9 +34,9 @@ CONNECT_TIMEOUT = 10  # seconds for initial TCP connect
 LOGIN_TIMEOUT   = 5   # seconds to receive <connect/> banner
 
 
-class SensioController:
+class SensioEoptController:
     """
-    Persistent async connection to a Sensio/X-Comfort controller.
+    Persistent async connection to a Sensio Eopt / X-Comfort controller.
 
     Events (raw text lines from the server) are dispatched to all registered
     listeners.  State is optimistic: entities assume commands succeeded and
@@ -140,11 +140,11 @@ class SensioController:
         )
 
         self.connected = True
-        _LOGGER.info("Sensio connected: %s", self.controller_info)
+        _LOGGER.info("Sensio Eopt connected: %s", self.controller_info)
         self._notify_connection(True)
 
         # Actively request current state for all objects whose IDs we know
-        # from previous sessions (stored in ~/.sensio/id_cache.json).
+        # from previous sessions (stored in ~/.sensio_eopt/id_cache.json).
         try:
             from .config import load_id_cache
             id_cache = load_id_cache()
@@ -161,7 +161,7 @@ class SensioController:
 
         # Start background reader
         self._read_task = asyncio.create_task(
-            self._read_loop(), name="sensio_read_loop"
+            self._read_loop(), name="sensio_eopt_read_loop"
         )
 
         return self.controller_info or ControllerInfo("")
@@ -185,7 +185,7 @@ class SensioController:
                 return
             except Exception as exc:
                 _LOGGER.warning(
-                    "Sensio connection failed (%s: %s), retrying in %ds",
+                    "Sensio Eopt connection failed (%s: %s), retrying in %ds",
                     type(exc).__name__, exc, RECONNECT_DELAY,
                 )
 
@@ -283,7 +283,7 @@ class SensioController:
             while not self._stop_event.is_set():
                 chunk = await self._reader.read(4096)
                 if not chunk:
-                    _LOGGER.debug("Sensio: server closed connection")
+                    _LOGGER.debug("Sensio Eopt: server closed connection")
                     break
                 buf += chunk
                 msgs, buf = _smux_parse(buf)
@@ -291,7 +291,7 @@ class SensioController:
                     line = line.strip()
                     if not line:
                         continue
-                    _LOGGER.debug("Sensio event: %r", line)
+                    _LOGGER.debug("Sensio Eopt event: %r", line)
                     # Echo keepalive ACKs back to the controller (SMUX-framed)
                     if "x_bm_st ACK_DIR" in line or "PANEL_BRIGHTNESS" in line:
                         try:
@@ -315,7 +315,7 @@ class SensioController:
             raise
         except Exception as exc:
             if not self._stop_event.is_set():
-                _LOGGER.error("Sensio read loop error: %s", exc)
+                _LOGGER.error("Sensio Eopt read loop error: %s", exc)
         finally:
             if _id_batch:
                 try:
@@ -331,11 +331,11 @@ class SensioController:
             try:
                 cb(line)
             except Exception:
-                _LOGGER.exception("Error in Sensio event listener")
+                _LOGGER.exception("Error in Sensio Eopt event listener")
 
     def _notify_connection(self, state: bool) -> None:
         for cb in list(self._connection_listeners):
             try:
                 cb(state)
             except Exception:
-                _LOGGER.exception("Error in Sensio connection listener")
+                _LOGGER.exception("Error in Sensio Eopt connection listener")

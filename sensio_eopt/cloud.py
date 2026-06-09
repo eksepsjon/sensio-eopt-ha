@@ -15,7 +15,7 @@ import httpx
 from .auth import load_token, load_base_url
 
 
-class SensioAPIError(Exception):
+class SensioEoptAPIError(Exception):
     def __init__(self, status: int, body: str) -> None:
         self.status = status
         self.body = body
@@ -32,7 +32,7 @@ class CloudClient:
         self._token = token or load_token()
         if not self._token:
             raise RuntimeError(
-                "Not authenticated. Run `sensio login` first."
+                "Not authenticated. Run `sensio_eopt login` first."
             )
 
     def _headers(self) -> dict[str, str]:
@@ -46,14 +46,14 @@ class CloudClient:
         url = self._base + path
         r = httpx.get(url, headers=self._headers(), params=params, timeout=15)
         if not r.is_success:
-            raise SensioAPIError(r.status_code, r.text)
+            raise SensioEoptAPIError(r.status_code, r.text)
         return r.json() if r.content else None
 
     def _post(self, path: str, body: Any = None) -> Any:
         url = self._base + path
         r = httpx.post(url, headers=self._headers(), json=body, timeout=15)
         if not r.is_success:
-            raise SensioAPIError(r.status_code, r.text)
+            raise SensioEoptAPIError(r.status_code, r.text)
         return r.json() if r.content else None
 
     # ------------------------------------------------------------------
@@ -135,7 +135,7 @@ class CloudClient:
         self,
         device_id: str,
         client_type: str = "MAUI",
-        device_name: str = "sensio-cli",
+        device_name: str = "sensio-eopt-cli",
     ) -> dict:
         """Register this client and get a TokenId/TokenSecret for local TCP login."""
         body = {
@@ -154,6 +154,6 @@ class CloudClient:
         for path in ("/v1/users/me", "/v1/users/current"):
             try:
                 return self._get(path)
-            except SensioAPIError:
+            except SensioEoptAPIError:
                 continue
-        raise SensioAPIError(404, "user info endpoint not found")
+        raise SensioEoptAPIError(404, "user info endpoint not found")

@@ -1,4 +1,4 @@
-"""Base entity class shared by all Sensio platforms."""
+"""Base entity class shared by all Sensio Eopt platforms."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN, SIGNAL_CONNECTED, SIGNAL_EVENT
-from .coordinator import SensioCoordinator
+from .coordinator import SensioEoptCoordinator
 
 
-class SensioEntity(RestoreEntity):
+class SensioEoptEntity(RestoreEntity):
     """
-    Base class for all Sensio entities.
+    Base class for all Sensio Eopt entities.
 
     - Uses RestoreEntity so optimistic state survives HA restarts.
     - Subscribes to SIGNAL_EVENT for push state updates.
@@ -22,7 +22,7 @@ class SensioEntity(RestoreEntity):
     _attr_should_poll = False
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: SensioCoordinator, device) -> None:
+    def __init__(self, coordinator: SensioEoptCoordinator, device) -> None:
         self.coordinator = coordinator
         self.device = device
         self._attr_unique_id = f"{DOMAIN}_{device.unique_id}"
@@ -31,8 +31,8 @@ class SensioEntity(RestoreEntity):
             "identifiers": {
                 (DOMAIN, coordinator.controller.host)
             },
-            "name": "Sensio Controller",
-            "manufacturer": "Eaton / Sensio",
+            "name": "Sensio Eopt Controller",
+            "manufacturer": "Eaton / Sensio Eopt",
             "model": "X-Comfort Gateway",
             "sw_version": (
                 coordinator.controller.controller_info.firmware
@@ -79,7 +79,7 @@ class SensioEntity(RestoreEntity):
     # ------------------------------------------------------------------
 
     def _handle_event(self, event) -> None:
-        """Called for every parsed SensioEvent from the controller. Override in subclasses."""
+        """Called for every parsed SensioEoptEvent from the controller. Override in subclasses."""
 
     def _handle_connected(self, connected: bool) -> None:
         """Called when connection state changes."""
