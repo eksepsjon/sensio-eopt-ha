@@ -15,8 +15,12 @@ Quick start:
 
 from __future__ import annotations
 
+import json
+import os
 import sys
+import threading
 import time
+from datetime import datetime
 from typing import Optional
 
 import click
@@ -298,27 +302,102 @@ def dim(set_action: str, percent: int, dry_run: bool) -> None:
 
 @cli.command()
 @click.option("--raw", is_flag=True, help="Show raw unparsed event lines")
-def monitor(raw: bool) -> None:
+@click.option(
+    "--save-states", "states_file",
+    default=None,
+    metavar="FILE",
+    help="Accumulate device states and write to FILE on exit (also saves every 60 s). "
+         "Example: --save-states ~/.sensio_eopt/states.json",
+)
+def monitor(raw: bool, states_file: Optional[str]) -> None:
     """Connect to local controller and stream live events (Ctrl-C to stop).
 
     \b
     Event types shown:
       [trigger]  B_* function was executed
-      [dimmer]   D_* device value changed (0-255)
+      [dimmer]   D_* device value changed (0-100 %)
       [register] M_* metadata register updated
+
+    \b
+    State file format (--save-states):
+      dimmers      — D_* names → {value_pct, is_on, last_seen}
+      registers    — M_* names → {value, [temp_c], last_seen}
+      triggers     — B_* names → {last_seen}
+      unknown_lines — unparsed lines → {first_seen, last_seen, count}
     """
     creds = _require_config()
 
+    # ---------------------------------------------------------------
+    # State accumulator — only populated when --save-states is given
+    # ---------------------------------------------------------------
+    seen: dict = {"dimmers": {}, "registers": {}, "triggers": {}, "unknown_lines": {}}
+    state_lock = threading.Lock()
+
+    def _write_states() -> None:
+        path = os.path.expanduser(states_file)  # type: ignore[arg-type]
+        dirpath = os.path.dirname(os.path.abspath(path))
+        os.makedirs(dirpath, exist_ok=True)
+        payload: dict = {
+            "saved_at": datetime.now().isoformat(timespec="seconds"),
+            "dimmers": seen["dimmers"],
+            "registers": seen["registers"],
+            "triggers": seen["triggers"],
+            "unknown_lines": seen["unknown_lines"],
+        }
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2)
+
+    stop_save = threading.Event()
+
+    def _periodic_save() -> None:
+        while not stop_save.wait(60):
+            try:
+                with state_lock:
+                    _write_states()
+            except Exception:
+                pass
+
+    def _track(line: str, ts: str, evt) -> None:  # noqa: ANN001
+        with state_lock:
+            if evt is None:
+                entry = seen["unknown_lines"].get(line)
+                if entry is None:
+                    seen["unknown_lines"][line] = {"first_seen": ts, "last_seen": ts, "count": 1}
+                else:
+                    entry["last_seen"] = ts
+                    entry["count"] += 1
+            elif evt.is_trigger:
+                seen["triggers"][evt.name] = {"last_seen": ts}
+            elif evt.is_device_value:
+                seen["dimmers"][evt.name] = {
+                    "value_pct": evt.int_value,
+                    "is_on": evt.is_on,
+                    "last_seen": ts,
+                }
+            elif evt.is_register:
+                entry: dict = {"value": evt.float_value, "last_seen": ts}
+                if "_Temp" in evt.name:
+                    entry["temp_c"] = round(evt.float_value / 10, 1)
+                seen["registers"][evt.name] = entry
+
+    # ---------------------------------------------------------------
+    # Event callback
+    # ---------------------------------------------------------------
     def on_event(line: str) -> None:
         ts = time.strftime("%H:%M:%S")
+
         if raw:
             console.print(f"[dim]{ts}[/dim] {line}")
+            if states_file:
+                _track(line, ts, None)
             return
 
         evt = parse_event(line)
+
         if evt is None:
-            # keepalive or unknown — show dimly
             console.print(f"[dim]{ts} {line}[/dim]")
+            if states_file:
+                _track(line, ts, None)
             return
 
         if evt.is_trigger:
@@ -335,16 +414,31 @@ def monitor(raw: bool) -> None:
                 f"[white]{level}[/white]%  {bar}"
             )
         elif evt.is_register:
+            temp_hint = (
+                f"  [yellow]≈ {evt.float_value / 10:.1f} °C[/yellow]"
+                if "_Temp" in evt.name else ""
+            )
             console.print(
                 f"[dim]{ts}[/dim] [dim][register][/dim]  "
-                f"[dim]{evt.name}  {evt.float_value:.3f}[/dim]"
+                f"[dim]{evt.name}  {evt.float_value:.3f}[/dim]{temp_hint}"
             )
         else:
             console.print(f"[dim]{ts}[/dim] {line}")
 
-    console.print(
-        f"Connecting to [bold]{creds['controller_ip']}:10023[/bold] …"
-    )
+        if states_file:
+            _track(line, ts, evt)
+
+    # ---------------------------------------------------------------
+    # Connect
+    # ---------------------------------------------------------------
+    if states_file:
+        save_thread = threading.Thread(target=_periodic_save, daemon=True)
+        save_thread.start()
+        console.print(
+            f"[dim]States → [bold]{states_file}[/bold] (on exit + every 60 s)[/dim]"
+        )
+
+    console.print(f"Connecting to [bold]{creds['controller_ip']}:10023[/bold] …")
     try:
         with LocalClient(
             creds["controller_ip"],
@@ -362,6 +456,15 @@ def monitor(raw: bool) -> None:
     except Exception as exc:
         console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
+    finally:
+        if states_file:
+            stop_save.set()
+            try:
+                with state_lock:
+                    _write_states()
+                console.print(f"[green]States saved →[/green] {states_file}")
+            except Exception as exc:
+                console.print(f"[yellow]Could not save states:[/yellow] {exc}")
 
 
 # ---------------------------------------------------------------------------
