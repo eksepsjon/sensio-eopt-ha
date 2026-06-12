@@ -23,7 +23,7 @@ Field meanings
 seq        : short integer sequence number (RSN/SSN prefix)
 name       : object / function name (B_* / D_* / M_*)
 typeId     : 6  = function trigger (button pressed / command executed)
-             21 = integer device value (dimmer level 0-255, relay 0/100)
+             21 = integer device value (dimmer level 0-100, relay 0/100)
              23 = float register (current scene index, setpoint, etc.)
 value      : the new value (last field)
 

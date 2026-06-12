@@ -58,6 +58,7 @@ class SensioEoptLightEntity(SensioEoptEntity, LightEntity):
 
     _attr_color_mode = ColorMode.ONOFF
     _attr_supported_color_modes = {ColorMode.ONOFF}
+    _attr_icon = "mdi:lightbulb-group"
 
     def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptLight) -> None:
         super().__init__(coordinator, device)
@@ -76,21 +77,50 @@ class SensioEoptLightEntity(SensioEoptEntity, LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         effect = kwargs.get("effect")
+        prev_is_on = self.device.is_on
+        prev_effect = self._attr_effect
         if effect and effect.startswith("Scene "):
-            idx = int(effect.split()[-1]) - 1
+            try:
+                idx = int(effect.split()[-1]) - 1
+            except (ValueError, IndexError):
+                _LOGGER.warning("Ignoring unrecognised light effect %r", effect)
+                idx = -1
             if 0 <= idx < len(self.device.scenes):
-                await self.coordinator.controller.trigger(self.device.scenes[idx])
+                try:
+                    await self.coordinator.controller.trigger(self.device.scenes[idx])
+                except Exception as exc:
+                    _LOGGER.error("Failed to trigger scene for %s: %s", self._attr_name, exc)
+                    self.device.is_on = prev_is_on
+                    self._attr_effect = prev_effect
+                    self.async_write_ha_state()
+                    return
                 self._attr_effect = effect
                 self.device.is_on = True
                 self.async_write_ha_state()
                 return
 
-        await self.coordinator.controller.trigger(self.device.func_on)
+        try:
+            await self.coordinator.controller.trigger(self.device.func_on)
+        except Exception as exc:
+            _LOGGER.error("Failed to turn on %s: %s", self._attr_name, exc)
+            self.device.is_on = prev_is_on
+            self._attr_effect = prev_effect
+            self.async_write_ha_state()
+            return
         self.device.is_on = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.controller.trigger(self.device.func_off)
+        prev_is_on = self.device.is_on
+        prev_effect = self._attr_effect
+        try:
+            await self.coordinator.controller.trigger(self.device.func_off)
+        except Exception as exc:
+            _LOGGER.error("Failed to turn off %s: %s", self._attr_name, exc)
+            self.device.is_on = prev_is_on
+            self._attr_effect = prev_effect
+            self.async_write_ha_state()
+            return
         self.device.is_on = False
         self._attr_effect = None
         self.async_write_ha_state()
@@ -131,6 +161,7 @@ class SensioEoptDimmerEntity(SensioEoptEntity, LightEntity):
 
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+    _attr_icon = "mdi:lightbulb"
 
     def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptDimmer) -> None:
         super().__init__(coordinator, device)
@@ -150,12 +181,26 @@ class SensioEoptDimmerEntity(SensioEoptEntity, LightEntity):
         ha_level = kwargs.get(ATTR_BRIGHTNESS, 255)
         percent = round(int(ha_level) * 100 / 255)
         percent = max(1, min(100, percent))  # turn_on should never go to 0
-        await self.coordinator.controller.dim(self.device.func_set, percent)
+        prev_pct = self.device.brightness_pct
+        try:
+            await self.coordinator.controller.dim(self.device.func_set, percent)
+        except Exception as exc:
+            _LOGGER.error("Failed to set brightness for %s: %s", self._attr_name, exc)
+            self.device.brightness_pct = prev_pct
+            self.async_write_ha_state()
+            return
         self.device.brightness_pct = percent
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.controller.dim(self.device.func_set, 0)
+        prev_pct = self.device.brightness_pct
+        try:
+            await self.coordinator.controller.dim(self.device.func_set, 0)
+        except Exception as exc:
+            _LOGGER.error("Failed to turn off %s: %s", self._attr_name, exc)
+            self.device.brightness_pct = prev_pct
+            self.async_write_ha_state()
+            return
         self.device.brightness_pct = 0
         self.async_write_ha_state()
 

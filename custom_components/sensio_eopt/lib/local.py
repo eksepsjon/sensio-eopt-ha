@@ -33,6 +33,7 @@ Incoming events (SMUX-framed text):
 
 from __future__ import annotations
 
+import re
 import select
 import socket
 import threading
@@ -51,6 +52,7 @@ _MSG_END   = b'\x02'
 _HDR_BEGIN = b'\x07'
 _ERR_BEGIN = b'\x05'
 _START_BYTES = frozenset([0x01, 0x05, 0x06, 0x07])
+_RSN_ID_RE = re.compile(r"^(?:RSN|SSN)\s+(\d+)\s+(\S+)")
 
 
 def _smux_encode(message: str) -> bytes:
@@ -124,7 +126,6 @@ class ControllerInfo:
 
 
 def _attr(s: str, name: str) -> str:
-    import re
     m = re.search(rf'{name}="([^"]*)"', s)
     return m.group(1) if m else ""
 
@@ -332,9 +333,7 @@ class LocalClient:
         return collected[:count]
 
     def _read_loop(self) -> None:
-        import re
         from .config import update_id_cache
-        _RSN_ID_RE = re.compile(r"^(?:RSN|SSN)\s+(\d+)\s+(\S+)")
         _id_batch: dict[str, int] = {}
         _batch_count = 0
 

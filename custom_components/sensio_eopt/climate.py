@@ -82,6 +82,7 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
 
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_hvac_mode  = HVACMode.HEAT
+    _attr_icon = "mdi:radiator"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_HALVES
     _attr_target_temperature_step = 0.5
@@ -133,16 +134,31 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
         if not self._mode_selector:
             return
         if hvac_mode == HVACMode.OFF:
-            await self._set_zone_mode("away")
+            try:
+                await self._set_zone_mode("away")
+            except Exception as exc:
+                _LOGGER.error("Failed to set HVAC mode for %s: %s", self._attr_name, exc)
+                self.async_write_ha_state()
+                return
             self._attr_hvac_mode = HVACMode.OFF
         else:
-            await self._set_zone_mode("home")
+            try:
+                await self._set_zone_mode("home")
+            except Exception as exc:
+                _LOGGER.error("Failed to set HVAC mode for %s: %s", self._attr_name, exc)
+                self.async_write_ha_state()
+                return
             self._attr_hvac_mode = HVACMode.HEAT
         self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         mode_key = PRESET_TO_MODE.get(preset_mode, "home")
-        await self._set_zone_mode(mode_key)
+        try:
+            await self._set_zone_mode(mode_key)
+        except Exception as exc:
+            _LOGGER.error("Failed to set preset mode for %s: %s", self._attr_name, exc)
+            self.async_write_ha_state()
+            return
         self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
@@ -150,18 +166,23 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
         if temp is None:
             return
 
-        if self.device.func_set:
-            # Direct set — encode as integer tenths-of-a-degree
-            raw = int(round(temp * TEMP_SCALE))
-            await self.coordinator.controller.trigger(self.device.func_set, raw)
-        else:
-            # Fallback: step up or down from current target
-            current = self.device.target_temperature
-            delta = temp - current
-            steps = abs(int(round(delta / 0.5)))
-            func = self.device.func_inc if delta > 0 else self.device.func_dec
-            for _ in range(steps):
-                await self.coordinator.controller.trigger(func)
+        try:
+            if self.device.func_set:
+                # Direct set — encode as integer tenths-of-a-degree
+                raw = int(round(temp * TEMP_SCALE))
+                await self.coordinator.controller.trigger(self.device.func_set, raw)
+            else:
+                # Fallback: step up or down from current target
+                current = self.device.target_temperature
+                delta = temp - current
+                steps = abs(int(round(delta / 0.5)))
+                func = self.device.func_inc if delta > 0 else self.device.func_dec
+                for _ in range(steps):
+                    await self.coordinator.controller.trigger(func)
+        except Exception as exc:
+            _LOGGER.error("Failed to set temperature for %s: %s", self._attr_name, exc)
+            self.async_write_ha_state()
+            return
 
         self.device.target_temperature = temp
         self._attr_target_temperature = temp

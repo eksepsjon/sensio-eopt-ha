@@ -26,6 +26,7 @@ from typing import Optional
 from .local import ControllerInfo, CONTROLLER_PORT, ENCODING, _smux_encode, _smux_parse
 
 _LOGGER = logging.getLogger(__name__)
+_RSN_ID_RE = re.compile(r"^(?:RSN|SSN)\s+(\d+)\s+(\S+)")
 
 RECONNECT_DELAY = 5   # seconds between reconnect attempts
 CONNECT_TIMEOUT = 10  # seconds for initial TCP connect
@@ -272,7 +273,6 @@ class SensioEoptController:
         """Read SMUX-framed messages and dispatch to listeners until connection closes."""
         assert self._reader is not None
         from .config import update_id_cache
-        _RSN_ID_RE = re.compile(r"^(?:RSN|SSN)\s+(\d+)\s+(\S+)")
         _id_batch: dict[str, int] = {}
         _batch_count = 0
 
