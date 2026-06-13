@@ -167,6 +167,19 @@ class SensioEoptDimmerEntity(SensioEoptEntity, LightEntity):
         super().__init__(coordinator, device)
         self._attr_name = device.name
 
+        # Derive base device name for event matching.
+        # Function names may be truncated in the bash script (~30-char limit),
+        # e.g. "B_D_Trapp2etgHallTrappEntre_S" instead of full "_SET".
+        # Strip B_D_ prefix and any partial _SET suffix, then use prefix matching.
+        base = device.func_set[4:] if device.func_set.startswith("B_D_") else device.func_set
+        for suffix in ("_SET", "_SE", "_S"):
+            if base.endswith(suffix):
+                base = base[:-len(suffix)]
+                break
+        base = base.rstrip("_")
+        self._d_prefix = "D_" + base
+        self._m_prefix = "M_D_" + base
+
     @property
     def is_on(self) -> bool:
         return self.device.brightness_pct > 0
@@ -206,20 +219,18 @@ class SensioEoptDimmerEntity(SensioEoptEntity, LightEntity):
 
     def _handle_event(self, event) -> None:
         # Type 21: D_* device value — real current brightness from the controller (0-100)
-        if event.is_device_value and event.name.startswith("D_"):
-            # D_Hall2etgHallTrappEntre matches B_D_Hall2etgHallTrappEntre_SET
-            expected_d = "D_" + self.device.func_set[4:-4]  # strip B_D_ and _SET
-            if event.name == expected_d:
-                self.device.brightness_pct = max(0, min(100, event.int_value))
-                self.async_write_ha_state()
+        # SSN events carry the value in the state field (value_raw is 0);
+        # RSN events carry it in both fields.  Prefix match handles truncated
+        # function names from the bash script.
+        if event.is_device_value and event.name.startswith(self._d_prefix):
+            pct = max(event.state, event.int_value)
+            self.device.brightness_pct = max(0, min(100, pct))
+            self.async_write_ha_state()
         # Type 23: M_D_*_Val float register — same info as D_* but as a float
-        elif event.is_register:
-            # B_D_Hall2etgHallTrappEntre_SET → M_D_Hall2etgHallTrappEntre_Val
-            expected_m = "M_" + self.device.func_set[2:-4] + "_Val"  # strip B_ and _SET
-            if event.name == expected_m:
-                pct = max(0, min(100, int(round(event.float_value))))
-                self.device.brightness_pct = pct
-                self.async_write_ha_state()
+        elif event.is_register and event.name.startswith(self._m_prefix) and event.name.endswith("_Val"):
+            pct = max(0, min(100, int(round(event.float_value))))
+            self.device.brightness_pct = pct
+            self.async_write_ha_state()
         # Type 6: function trigger confirmation — just refresh state
         elif event.is_trigger and event.name == self.device.func_set:
             self.async_write_ha_state()
