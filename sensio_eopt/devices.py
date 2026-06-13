@@ -87,6 +87,7 @@ class SensioEoptThermostat:
     preset_scenes: list[str]  # [B_*_Sc1, _Sc2, _Sc3]
     # optimistic state
     target_temperature: float = 21.0
+    current_temperature: Optional[float] = None
     preset: str = "none"    # "sc1", "sc2", "sc3"
 
 
