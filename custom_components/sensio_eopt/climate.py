@@ -16,12 +16,13 @@ to set_temperature, adjust TEMP_SCALE below.
 from __future__ import annotations
 
 import logging
-import math
+import re
 from typing import Any
 
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
+    HVACAction,
     HVACMode,
 )
 from homeassistant.components.climate.const import PRESET_AWAY, PRESET_HOME, PRESET_SLEEP
@@ -98,6 +99,7 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
         super().__init__(coordinator, device)
         self._attr_name = device.name
         self._mode_selector = mode_selector
+        self._is_heating = False
 
         features = ClimateEntityFeature.TARGET_TEMPERATURE
 
@@ -115,9 +117,27 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
         self._attr_target_temperature = device.target_temperature
         self._attr_preset_mode = PRESET_HOME
 
+        # Precompute event name patterns for this thermostat zone
+        # TH_Gang1etg0573 — type 7 thermostat status
+        self._th_name = "TH_" + device.unique_id
+        # M_Gang1etgTempCurAvg / M_Gang1etgTempSetAvg — zone name without trailing digits
+        zone_no_digits = re.sub(r"\d+$", "", device.unique_id)
+        self._temp_cur_avg_name = f"M_{zone_no_digits}TempCurAvg"
+        self._temp_set_avg_name = f"M_{zone_no_digits}TempSetAvg"
+
     @property
     def target_temperature(self) -> float:
         return self.device.target_temperature
+
+    @property
+    def current_temperature(self) -> float | None:
+        return self.device.current_temperature
+
+    @property
+    def hvac_action(self) -> HVACAction:
+        if self._attr_hvac_mode == HVACMode.OFF:
+            return HVACAction.OFF
+        return HVACAction.HEATING if self._is_heating else HVACAction.IDLE
 
     @property
     def preset_mode(self) -> str | None:
@@ -193,9 +213,28 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
     # ------------------------------------------------------------------
 
     def _handle_event(self, event) -> None:
-        # Type 23: M_* float register — temperature setpoint (value = °C × TEMP_SCALE)
+        # Type 7: TH_* thermostat status — setpoint + current temp directly in °C
+        if event.is_thermostat_status and event.name == self._th_name:
+            self.device.target_temperature = event.thermostat_setpoint
+            self._attr_target_temperature = event.thermostat_setpoint
+            self.device.current_temperature = event.thermostat_current_temp
+            self._is_heating = event.is_heating
+            self.async_write_ha_state()
+            return
+
+        # Type 23: M_* float registers
         if event.is_register:
-            # B_Vaskerom0533_Temp_Dec → prefix_no_b = "Vaskerom0533"
+            if event.name == self._temp_cur_avg_name:
+                self.device.current_temperature = event.float_value
+                self.async_write_ha_state()
+                return
+            if event.name == self._temp_set_avg_name:
+                if self._attr_min_temp <= event.float_value <= self._attr_max_temp:
+                    self.device.target_temperature = event.float_value
+                    self._attr_target_temperature = event.float_value
+                    self.async_write_ha_state()
+                return
+            # Legacy: M_{prefix_no_b}* registers (value = °C × TEMP_SCALE)
             prefix_no_b = self.device.func_dec.split("_Temp_Dec")[0][2:]
             if event.name.startswith("M_" + prefix_no_b):
                 temp = event.float_value / TEMP_SCALE
@@ -203,7 +242,9 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
                     self.device.target_temperature = temp
                     self._attr_target_temperature = temp
                     self.async_write_ha_state()
-        elif event.is_trigger:
+            return
+
+        if event.is_trigger:
             # Increment/decrement buttons — adjust optimistic setpoint
             if event.name == self.device.func_inc:
                 new_temp = min(self.device.target_temperature + 0.5, self._attr_max_temp)
@@ -250,6 +291,8 @@ class SensioEoptClimateEntity(SensioEoptEntity, ClimateEntity):
         if (t := attrs.get("temperature")) is not None:
             self.device.target_temperature = float(t)
             self._attr_target_temperature = float(t)
+        if (ct := attrs.get("current_temperature")) is not None:
+            self.device.current_temperature = float(ct)
         if (p := attrs.get("preset_mode")) is not None:
             mode_key = PRESET_TO_MODE.get(p, "home")
             if self._mode_selector:

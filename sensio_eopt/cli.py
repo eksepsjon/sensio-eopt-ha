@@ -315,22 +315,35 @@ def monitor(raw: bool, states_file: Optional[str]) -> None:
     \b
     Event types shown:
       [trigger]  B_* function was executed
+      [thermo]   TH_* thermostat status (setpoint / current / floor temp)
+      [relay]    R_Vk* heating cable/valve controller
+      [sensor]   S_Vk* heating zone sensor (watts / °C)
+      [device]   D_MinMax*/D_SafeOff* extended device values
+      [timer]    T_* timer/schedule data
       [dimmer]   D_* device value changed (0-100 %)
-      [register] M_* metadata register updated
+      [register] M_* metadata register updated (incl. _Sc scene configs)
 
     \b
     State file format (--save-states):
-      dimmers      — D_* names → {value_pct, is_on, last_seen}
-      registers    — M_* names → {value, [temp_c], last_seen}
-      triggers     — B_* names → {last_seen}
-      unknown_lines — unparsed lines → {first_seen, last_seen, count}
+      dimmers         — D_* names → {value_pct, is_on, last_seen}
+      thermostats     — TH_* names → {setpoint, current_temp, floor_temp, heating}
+      heating_relays  — R_Vk* names → {setpoint, current_temp, values}
+      energy_sensors  — S_Vk* names → {value, unit}
+      extended_devices — D_MinMax*/D_SafeOff* → {values}
+      registers       — M_* names → {value, [temp_c], [scene_values], last_seen}
+      triggers        — B_* names → {last_seen}
+      unknown_lines   — unparsed lines → {first_seen, last_seen, count}
     """
     creds = _require_config()
 
     # ---------------------------------------------------------------
     # State accumulator — only populated when --save-states is given
     # ---------------------------------------------------------------
-    seen: dict = {"dimmers": {}, "registers": {}, "triggers": {}, "unknown_lines": {}}
+    seen: dict = {
+        "dimmers": {}, "registers": {}, "triggers": {},
+        "thermostats": {}, "heating_relays": {}, "energy_sensors": {},
+        "extended_devices": {}, "unknown_lines": {},
+    }
     state_lock = threading.Lock()
 
     def _write_states() -> None:
@@ -340,6 +353,10 @@ def monitor(raw: bool, states_file: Optional[str]) -> None:
         payload: dict = {
             "saved_at": datetime.now().isoformat(timespec="seconds"),
             "dimmers": seen["dimmers"],
+            "thermostats": seen["thermostats"],
+            "heating_relays": seen["heating_relays"],
+            "energy_sensors": seen["energy_sensors"],
+            "extended_devices": seen["extended_devices"],
             "registers": seen["registers"],
             "triggers": seen["triggers"],
             "unknown_lines": seen["unknown_lines"],
@@ -368,6 +385,34 @@ def monitor(raw: bool, states_file: Optional[str]) -> None:
                     entry["count"] += 1
             elif evt.is_trigger:
                 seen["triggers"][evt.name] = {"last_seen": ts}
+            elif evt.is_thermostat_status:
+                seen["thermostats"][evt.name] = {
+                    "setpoint": evt.thermostat_setpoint,
+                    "current_temp": evt.thermostat_current_temp,
+                    "floor_temp": evt.thermostat_floor_temp,
+                    "heating": evt.is_heating,
+                    "last_seen": ts,
+                }
+            elif evt.is_heating_relay:
+                vals = evt.float_values
+                seen["heating_relays"][evt.name] = {
+                    "setpoint": vals[0] if vals else 0,
+                    "current_temp": vals[1] if len(vals) > 1 else 0,
+                    "floor_temp": vals[2] if len(vals) > 2 else 0,
+                    "values": vals,
+                    "last_seen": ts,
+                }
+            elif evt.is_heating_sensor:
+                seen["energy_sensors"][evt.name] = {
+                    "value": evt.float_value,
+                    "unit": evt.sensor_unit,
+                    "last_seen": ts,
+                }
+            elif evt.is_extended_device:
+                seen["extended_devices"][evt.name] = {
+                    "values": [evt.value_raw] + evt.extra_values,
+                    "last_seen": ts,
+                }
             elif evt.is_device_value:
                 seen["dimmers"][evt.name] = {
                     "value_pct": evt.int_value,
@@ -375,10 +420,12 @@ def monitor(raw: bool, states_file: Optional[str]) -> None:
                     "last_seen": ts,
                 }
             elif evt.is_register:
-                entry: dict = {"value": evt.float_value, "last_seen": ts}
+                reg_entry: dict = {"value": evt.float_value, "last_seen": ts}
                 if "_Temp" in evt.name:
-                    entry["temp_c"] = round(evt.float_value / 10, 1)
-                seen["registers"][evt.name] = entry
+                    reg_entry["temp_c"] = round(evt.float_value / 10, 1)
+                if evt.extra_values:
+                    reg_entry["scene_values"] = evt.float_values
+                seen["registers"][evt.name] = reg_entry
 
     # ---------------------------------------------------------------
     # Event callback
@@ -405,6 +452,45 @@ def monitor(raw: bool, states_file: Optional[str]) -> None:
                 f"[dim]{ts}[/dim] [bold green][trigger][/bold green]  "
                 f"[cyan]{evt.name}[/cyan]"
             )
+        elif evt.is_thermostat_status:
+            heating = "[red]heating[/red]" if evt.is_heating else "[dim]idle[/dim]"
+            floor = f"  floor={evt.thermostat_floor_temp:.1f}°C" if evt.thermostat_floor_temp else ""
+            console.print(
+                f"[dim]{ts}[/dim] [bold magenta][thermo ][/bold magenta]  "
+                f"[cyan]{evt.name}[/cyan]  "
+                f"set=[white]{evt.thermostat_setpoint:.1f}°C[/white]  "
+                f"cur=[white]{evt.thermostat_current_temp:.1f}°C[/white]{floor}  "
+                f"{heating}"
+            )
+        elif evt.is_heating_relay:
+            vals = evt.float_values
+            setpoint = vals[0] if vals else 0
+            cur = vals[1] if len(vals) > 1 else 0
+            console.print(
+                f"[dim]{ts}[/dim] [bold red][relay  ][/bold red]  "
+                f"[cyan]{evt.name}[/cyan]  "
+                f"set=[white]{setpoint:.1f}°C[/white]  "
+                f"cur=[white]{cur:.1f}°C[/white]"
+            )
+        elif evt.is_heating_sensor:
+            console.print(
+                f"[dim]{ts}[/dim] [bold yellow][sensor ][/bold yellow]  "
+                f"[cyan]{evt.name}[/cyan]  "
+                f"[white]{evt.float_value:.1f}[/white] {evt.sensor_unit}"
+            )
+        elif evt.is_extended_device:
+            vals = [evt.value_raw] + evt.extra_values
+            console.print(
+                f"[dim]{ts}[/dim] [bold blue][device ][/bold blue]  "
+                f"[cyan]{evt.name}[/cyan]  "
+                f"[white]{' / '.join(vals)}[/white]"
+            )
+        elif evt.is_timer:
+            console.print(
+                f"[dim]{ts}[/dim] [dim][timer  ][/dim]  "
+                f"[dim]{evt.name}[/dim]  "
+                f"[dim]{len(evt.extra_values)} schedule entries[/dim]"
+            )
         elif evt.is_device_value:
             level = evt.int_value
             bar = "|" * (level // 5) if level > 0 else "-"
@@ -414,13 +500,17 @@ def monitor(raw: bool, states_file: Optional[str]) -> None:
                 f"[white]{level}[/white]%  {bar}"
             )
         elif evt.is_register:
+            scene_hint = ""
+            if evt.extra_values and evt.name.endswith("_Sc"):
+                scene_vals = evt.float_values
+                scene_hint = f"  [yellow]scenes: {scene_vals}[/yellow]"
             temp_hint = (
                 f"  [yellow]≈ {evt.float_value / 10:.1f} °C[/yellow]"
                 if "_Temp" in evt.name else ""
             )
             console.print(
                 f"[dim]{ts}[/dim] [dim][register][/dim]  "
-                f"[dim]{evt.name}  {evt.float_value:.3f}[/dim]{temp_hint}"
+                f"[dim]{evt.name}  {evt.float_value:.3f}[/dim]{temp_hint}{scene_hint}"
             )
         else:
             console.print(f"[dim]{ts}[/dim] {line}")
@@ -538,10 +628,55 @@ def state(timeout: float) -> None:
                       "Try running a command first, then immediately run state.")
         return
 
-    # Split into triggers, devices, registers
+    # Split into categories
     triggers  = {n: e for n, e in latest.items() if e.is_trigger}
     devices   = {n: e for n, e in latest.items() if e.is_device_value}
     registers = {n: e for n, e in latest.items() if e.is_register}
+    thermos   = {n: e for n, e in latest.items() if e.is_thermostat_status}
+    relays    = {n: e for n, e in latest.items() if e.is_heating_relay}
+    energy    = {n: e for n, e in latest.items() if e.is_energy_sensor}
+    ext_devs  = {n: e for n, e in latest.items() if e.is_extended_device}
+
+    if thermos:
+        t = Table(title="Thermostats (TH_*)", show_lines=False)
+        t.add_column("Zone", style="cyan")
+        t.add_column("Setpoint", width=10)
+        t.add_column("Current", width=10)
+        t.add_column("Floor", width=10)
+        t.add_column("Status")
+        for name, evt in sorted(thermos.items()):
+            status = "[red]heating[/red]" if evt.is_heating else "[dim]idle[/dim]"
+            floor = f"{evt.thermostat_floor_temp:.1f} °C" if evt.thermostat_floor_temp else "-"
+            t.add_row(
+                name,
+                f"{evt.thermostat_setpoint:.1f} °C",
+                f"{evt.thermostat_current_temp:.1f} °C",
+                floor,
+                status,
+            )
+        console.print(t)
+
+    if relays:
+        t = Table(title="Heating relays (R_Vk*)", show_lines=False)
+        t.add_column("Relay", style="cyan")
+        t.add_column("Setpoint", width=10)
+        t.add_column("Current", width=10)
+        for name, evt in sorted(relays.items()):
+            vals = evt.float_values
+            t.add_row(
+                name,
+                f"{vals[0]:.1f} °C" if vals else "-",
+                f"{vals[1]:.1f} °C" if len(vals) > 1 else "-",
+            )
+        console.print(t)
+
+    if energy:
+        t = Table(title="Heating sensors (S_Vk*)", show_lines=False)
+        t.add_column("Sensor", style="cyan")
+        t.add_column("Value")
+        for name, evt in sorted(energy.items()):
+            t.add_row(name, f"{evt.float_value:.1f} {evt.sensor_unit}")
+        console.print(t)
 
     if devices:
         t = Table(title="Device values (D_*)", show_lines=False)
@@ -557,6 +692,15 @@ def state(timeout: float) -> None:
             t.add_row(name, f"{v}%", f"{state_str}  {bar}")
         console.print(t)
 
+    if ext_devs:
+        t = Table(title="Extended devices", show_lines=False)
+        t.add_column("Device", style="cyan")
+        t.add_column("Values")
+        for name, evt in sorted(ext_devs.items()):
+            vals = [evt.value_raw] + evt.extra_values
+            t.add_row(name, " / ".join(vals))
+        console.print(t)
+
     if triggers:
         t = Table(title="Last executed functions (B_*)", show_lines=False)
         t.add_column("Function", style="cyan")
@@ -569,7 +713,10 @@ def state(timeout: float) -> None:
         t.add_column("Register", style="dim cyan")
         t.add_column("Value", style="dim")
         for name, evt in sorted(registers.items()):
-            t.add_row(name, f"{evt.float_value:.3f}")
+            if evt.extra_values and evt.name.endswith("_Sc"):
+                t.add_row(name, f"{evt.float_values}")
+            else:
+                t.add_row(name, f"{evt.float_value:.3f}")
         console.print(t)
 
 

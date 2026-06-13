@@ -394,16 +394,22 @@ def make_thermostat(prefix="B_Vaskerom0533"):
 class TestClimateHandleEvent:
     def _make_entity(self, mode_selector=None):
         from custom_components.sensio_eopt.climate import SensioEoptClimateEntity, HVACMode
+        import re
         device = make_thermostat()
         coord = MagicMock()
         entity = SensioEoptClimateEntity.__new__(SensioEoptClimateEntity)
         entity.coordinator = coord
         entity.device = device
         entity._mode_selector = mode_selector
+        entity._is_heating = False
         entity._attr_hvac_mode = HVACMode.HEAT
         entity._attr_min_temp = 5.0
         entity._attr_max_temp = 40.0
         entity._attr_target_temperature = device.target_temperature
+        entity._th_name = "TH_" + device.unique_id
+        zone_no_digits = re.sub(r"\d+$", "", device.unique_id)
+        entity._temp_cur_avg_name = f"M_{zone_no_digits}TempCurAvg"
+        entity._temp_set_avg_name = f"M_{zone_no_digits}TempSetAvg"
         entity.async_write_ha_state = MagicMock()
         return entity
 
@@ -494,6 +500,64 @@ class TestClimateHandleEvent:
         entity._handle_event(evt)
         assert mode_sel.current_option == "home"
         assert entity._attr_hvac_mode == HVACMode.HEAT
+
+    def test_th_event_updates_setpoint_and_current(self):
+        """TH_* type 7 event updates both target and current temperature."""
+        entity = self._make_entity()
+        evt = rsn("RSN 2195 TH_Vaskerom0533 7 1 1 24.50 26.30 0.00")
+        entity._handle_event(evt)
+        assert abs(entity.device.target_temperature - 24.5) < 0.01
+        assert abs(entity.device.current_temperature - 26.3) < 0.01
+        assert entity._is_heating is True
+        entity.async_write_ha_state.assert_called_once()
+
+    def test_th_event_idle(self):
+        """TH_* type 7 event with state=0 means not heating."""
+        entity = self._make_entity()
+        entity._is_heating = True
+        evt = rsn("RSN 2195 TH_Vaskerom0533 7 1 0 23.00 25.20 0.00")
+        entity._handle_event(evt)
+        assert entity._is_heating is False
+
+    def test_th_event_wrong_zone_ignored(self):
+        entity = self._make_entity()
+        evt = rsn("RSN 2195 TH_OtherZone0123 7 1 1 30.00 28.00 0.00")
+        entity._handle_event(evt)
+        assert entity.device.current_temperature is None
+        entity.async_write_ha_state.assert_not_called()
+
+    def test_temp_cur_avg_updates_current(self):
+        """M_VaskeromTempCurAvg register updates current_temperature."""
+        entity = self._make_entity()
+        evt = rsn("RSN 100 M_VaskeromTempCurAvg 23 1 0 25.700")
+        entity._handle_event(evt)
+        assert abs(entity.device.current_temperature - 25.7) < 0.01
+        entity.async_write_ha_state.assert_called_once()
+
+    def test_temp_set_avg_updates_target(self):
+        """M_VaskeromTempSetAvg register updates target_temperature."""
+        entity = self._make_entity()
+        evt = rsn("RSN 100 M_VaskeromTempSetAvg 23 1 0 23.000")
+        entity._handle_event(evt)
+        assert abs(entity.device.target_temperature - 23.0) < 0.01
+        entity.async_write_ha_state.assert_called_once()
+
+    def test_hvac_action_heating(self):
+        """hvac_action reflects TH_ heating state."""
+        from custom_components.sensio_eopt.climate import HVACMode
+        from homeassistant.components.climate import HVACAction
+        entity = self._make_entity()
+        evt = rsn("RSN 2195 TH_Vaskerom0533 7 1 1 24.50 26.30 0.00")
+        entity._handle_event(evt)
+        assert entity.hvac_action == HVACAction.HEATING
+
+    def test_hvac_action_idle(self):
+        from custom_components.sensio_eopt.climate import HVACMode
+        from homeassistant.components.climate import HVACAction
+        entity = self._make_entity()
+        evt = rsn("RSN 2195 TH_Vaskerom0533 7 1 0 23.00 25.20 0.00")
+        entity._handle_event(evt)
+        assert entity.hvac_action == HVACAction.IDLE
 
 
 # ---------------------------------------------------------------------------
@@ -611,6 +675,7 @@ class TestSwitchRollbackOnError:
 class TestClimateRollbackOnError:
     def _make_entity(self):
         from custom_components.sensio_eopt.climate import SensioEoptClimateEntity, HVACMode
+        import re
         device = make_thermostat()
         coord = MagicMock()
         coord.controller.trigger = AsyncMock(side_effect=RuntimeError("disconnected"))
@@ -618,10 +683,15 @@ class TestClimateRollbackOnError:
         entity.coordinator = coord
         entity.device = device
         entity._mode_selector = None
+        entity._is_heating = False
         entity._attr_hvac_mode = HVACMode.HEAT
         entity._attr_min_temp = 5.0
         entity._attr_max_temp = 40.0
         entity._attr_target_temperature = device.target_temperature
+        entity._th_name = "TH_" + device.unique_id
+        zone_no_digits = re.sub(r"\d+$", "", device.unique_id)
+        entity._temp_cur_avg_name = f"M_{zone_no_digits}TempCurAvg"
+        entity._temp_set_avg_name = f"M_{zone_no_digits}TempSetAvg"
         entity.async_write_ha_state = MagicMock()
         entity._attr_name = "Vaskerom"
         return entity
