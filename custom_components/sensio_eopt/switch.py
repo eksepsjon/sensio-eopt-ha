@@ -43,6 +43,8 @@ class SensioEoptSwitchEntity(SensioEoptEntity, SwitchEntity):
     def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptRelay) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name
+        # B_R_UtelysUtelys → D_R_UtelysUtelys
+        self._d_event_name = "D_" + device.unique_id[2:]
 
     @property
     def is_on(self) -> bool:
@@ -81,9 +83,8 @@ class SensioEoptSwitchEntity(SensioEoptEntity, SwitchEntity):
                 self.device.is_on = False
                 self.async_write_ha_state()
         elif event.is_device_value:
-            # D_R_* type 21 — controller reporting current relay state (0=off, 100=on)
-            if event.name == "D_" + self.device.unique_id[2:]:
-                self.device.is_on = event.is_on
+            if event.name == self._d_event_name:
+                self.device.is_on = max(event.state, event.int_value) > 0
                 self.async_write_ha_state()
 
     async def _async_restore_state(self, last_state) -> None:

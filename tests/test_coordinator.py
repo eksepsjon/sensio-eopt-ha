@@ -108,6 +108,15 @@ class TestDimmerHandleEvent:
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()
+        # Precomputed event prefixes (normally set in __init__)
+        base = func_set[4:] if func_set.startswith("B_D_") else func_set
+        for suffix in ("_SET", "_SE", "_S"):
+            if base.endswith(suffix):
+                base = base[:-len(suffix)]
+                break
+        base = base.rstrip("_")
+        entity._d_prefix = "D_" + base
+        entity._m_prefix = "M_D_" + base
         return entity
 
     def test_d_event_updates_brightness_pct(self):
@@ -129,6 +138,36 @@ class TestDimmerHandleEvent:
         entity.device.brightness_pct = 50
         evt = rsn("RSN 59500 B_D_Hall2etgHallTrappEntre_SET 6 1 0 0")
         entity._handle_event(evt)
+        entity.async_write_ha_state.assert_called_once()
+
+    def test_ssn_event_uses_state_field(self):
+        """SSN events carry brightness in the state field, value_raw is 0."""
+        entity = self._make_entity()
+        evt = rsn("SSN 49633 D_Hall2etgHallTrappEntre 21 1 46 0")
+        entity._handle_event(evt)
+        assert entity.device.brightness_pct == 46
+        entity.async_write_ha_state.assert_called_once()
+
+    def test_m_val_register_updates_brightness(self):
+        entity = self._make_entity()
+        evt = rsn("RSN 49751 M_D_Hall2etgHallTrappEntre_Val 23 1 0 94.000")
+        entity._handle_event(evt)
+        assert entity.device.brightness_pct == 94
+        entity.async_write_ha_state.assert_called_once()
+
+    def test_truncated_func_name_matches_d_event(self):
+        """Bash script truncates long names; prefix matching still works."""
+        entity = self._make_entity("B_D_Trapp2etgHallTrappEntre_S")
+        evt = rsn("RSN 42593 D_Trapp2etgHallTrappEntre 21 1 100 100")
+        entity._handle_event(evt)
+        assert entity.device.brightness_pct == 100
+
+    def test_truncated_func_no_suffix_matches(self):
+        """Function name truncated before _SET entirely."""
+        entity = self._make_entity("B_D_SpotlightsKjkkenKjkkenStu")
+        evt = rsn("SSN 45340 D_SpotlightsKjkkenKjkkenStue 21 1 0 0")
+        entity._handle_event(evt)
+        assert entity.device.brightness_pct == 0
         entity.async_write_ha_state.assert_called_once()
 
     def test_is_on_true_when_brightness_nonzero(self):
@@ -165,6 +204,8 @@ class TestDimmerTurnOnOff:
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()
+        entity._d_prefix = "D_Hall2etgHallTrappEntre"
+        entity._m_prefix = "M_D_Hall2etgHallTrappEntre"
         return entity
 
     @pytest.mark.asyncio
@@ -290,6 +331,7 @@ class TestSwitchHandleEvent:
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()
+        entity._d_event_name = "D_R_UtelysUtelys"
         return entity
 
     def test_trigger_on_updates_state(self):
@@ -343,6 +385,14 @@ class TestDimmerHandleRegisterEvent:
         entity.coordinator = coord
         entity.device = device
         entity.async_write_ha_state = MagicMock()
+        base = func_set[4:] if func_set.startswith("B_D_") else func_set
+        for suffix in ("_SET", "_SE", "_S"):
+            if base.endswith(suffix):
+                base = base[:-len(suffix)]
+                break
+        base = base.rstrip("_")
+        entity._d_prefix = "D_" + base
+        entity._m_prefix = "M_D_" + base
         return entity
 
     def test_m_register_updates_brightness(self):
@@ -627,6 +677,8 @@ class TestDimmerRollbackOnError:
         entity.device = device
         entity.async_write_ha_state = MagicMock()
         entity._attr_name = "Hall Dimmer"
+        entity._d_prefix = "D_Hall2etgHallTrappEntre"
+        entity._m_prefix = "M_D_Hall2etgHallTrappEntre"
         return entity
 
     @pytest.mark.asyncio
@@ -655,6 +707,7 @@ class TestSwitchRollbackOnError:
         entity.device = device
         entity.async_write_ha_state = MagicMock()
         entity._attr_name = "Utelys"
+        entity._d_event_name = "D_R_UtelysUtelys"
         return entity
 
     @pytest.mark.asyncio
