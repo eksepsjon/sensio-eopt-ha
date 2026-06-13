@@ -7,6 +7,7 @@ State is optimistic.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -18,6 +19,8 @@ from .lib.devices import SensioEoptRelay
 
 from .coordinator import SensioEoptCoordinator
 from .entity import SensioEoptEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -35,6 +38,8 @@ async def async_setup_entry(
 class SensioEoptSwitchEntity(SensioEoptEntity, SwitchEntity):
     """A Sensio Eopt relay output as an HA switch."""
 
+    _attr_icon = "mdi:toggle-switch"
+
     def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptRelay) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name
@@ -44,12 +49,26 @@ class SensioEoptSwitchEntity(SensioEoptEntity, SwitchEntity):
         return self.device.is_on
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self.coordinator.controller.trigger(self.device.func_on)
+        prev = self.device.is_on
+        try:
+            await self.coordinator.controller.trigger(self.device.func_on)
+        except Exception as exc:
+            _LOGGER.error("Failed to turn on %s: %s", self._attr_name, exc)
+            self.device.is_on = prev
+            self.async_write_ha_state()
+            return
         self.device.is_on = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.controller.trigger(self.device.func_off)
+        prev = self.device.is_on
+        try:
+            await self.coordinator.controller.trigger(self.device.func_off)
+        except Exception as exc:
+            _LOGGER.error("Failed to turn off %s: %s", self._attr_name, exc)
+            self.device.is_on = prev
+            self.async_write_ha_state()
+            return
         self.device.is_on = False
         self.async_write_ha_state()
 

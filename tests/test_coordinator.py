@@ -494,3 +494,143 @@ class TestClimateHandleEvent:
         entity._handle_event(evt)
         assert mode_sel.current_option == "home"
         assert entity._attr_hvac_mode == HVACMode.HEAT
+
+
+# ---------------------------------------------------------------------------
+# Optimistic state rollback on command failure
+# ---------------------------------------------------------------------------
+
+class TestLightRollbackOnError:
+    def _make_entity(self, scenes=None):
+        from custom_components.sensio_eopt.light import SensioEoptLightEntity
+        device = make_light()
+        if scenes:
+            device.scenes = scenes
+        coord = MagicMock()
+        coord.controller.trigger = AsyncMock(side_effect=RuntimeError("disconnected"))
+        entity = SensioEoptLightEntity.__new__(SensioEoptLightEntity)
+        entity.coordinator = coord
+        entity.device = device
+        entity.async_write_ha_state = MagicMock()
+        entity._attr_effect = None
+        entity._attr_name = "Hall Light"
+        return entity
+
+    @pytest.mark.asyncio
+    async def test_turn_on_rolls_back(self):
+        entity = self._make_entity()
+        entity.device.is_on = False
+        await entity.async_turn_on()
+        assert entity.device.is_on is False
+
+    @pytest.mark.asyncio
+    async def test_turn_off_rolls_back(self):
+        entity = self._make_entity()
+        entity.device.is_on = True
+        await entity.async_turn_off()
+        assert entity.device.is_on is True
+
+    @pytest.mark.asyncio
+    async def test_scene_rolls_back(self):
+        scenes = ["B_LightHallTrappEntre_Sc1", "B_LightHallTrappEntre_Sc2"]
+        entity = self._make_entity(scenes=scenes)
+        entity.device.is_on = False
+        entity._attr_effect = None
+        await entity.async_turn_on(effect="Scene 1")
+        assert entity.device.is_on is False
+        assert entity._attr_effect is None
+
+    @pytest.mark.asyncio
+    async def test_malformed_effect_falls_through_to_func_on(self):
+        """Effect string with no trailing number falls back to plain turn_on call."""
+        entity = self._make_entity()
+        entity.coordinator.controller.trigger = AsyncMock()
+        entity.device.is_on = False
+        await entity.async_turn_on(effect="Scene")
+        entity.coordinator.controller.trigger.assert_awaited_once_with(
+            "B_LightHallTrappEntre_ON"
+        )
+
+
+class TestDimmerRollbackOnError:
+    def _make_entity(self):
+        from custom_components.sensio_eopt.light import SensioEoptDimmerEntity
+        device = make_dimmer()
+        coord = MagicMock()
+        coord.controller.dim = AsyncMock(side_effect=RuntimeError("timeout"))
+        entity = SensioEoptDimmerEntity.__new__(SensioEoptDimmerEntity)
+        entity.coordinator = coord
+        entity.device = device
+        entity.async_write_ha_state = MagicMock()
+        entity._attr_name = "Hall Dimmer"
+        return entity
+
+    @pytest.mark.asyncio
+    async def test_turn_on_rolls_back(self):
+        entity = self._make_entity()
+        entity.device.brightness_pct = 50
+        await entity.async_turn_on()
+        assert entity.device.brightness_pct == 50
+
+    @pytest.mark.asyncio
+    async def test_turn_off_rolls_back(self):
+        entity = self._make_entity()
+        entity.device.brightness_pct = 75
+        await entity.async_turn_off()
+        assert entity.device.brightness_pct == 75
+
+
+class TestSwitchRollbackOnError:
+    def _make_entity(self):
+        from custom_components.sensio_eopt.switch import SensioEoptSwitchEntity
+        device = make_relay()
+        coord = MagicMock()
+        coord.controller.trigger = AsyncMock(side_effect=RuntimeError("disconnected"))
+        entity = SensioEoptSwitchEntity.__new__(SensioEoptSwitchEntity)
+        entity.coordinator = coord
+        entity.device = device
+        entity.async_write_ha_state = MagicMock()
+        entity._attr_name = "Utelys"
+        return entity
+
+    @pytest.mark.asyncio
+    async def test_turn_on_rolls_back(self):
+        entity = self._make_entity()
+        entity.device.is_on = False
+        await entity.async_turn_on()
+        assert entity.device.is_on is False
+
+    @pytest.mark.asyncio
+    async def test_turn_off_rolls_back(self):
+        entity = self._make_entity()
+        entity.device.is_on = True
+        await entity.async_turn_off()
+        assert entity.device.is_on is True
+
+
+class TestClimateRollbackOnError:
+    def _make_entity(self):
+        from custom_components.sensio_eopt.climate import SensioEoptClimateEntity, HVACMode
+        device = make_thermostat()
+        coord = MagicMock()
+        coord.controller.trigger = AsyncMock(side_effect=RuntimeError("disconnected"))
+        entity = SensioEoptClimateEntity.__new__(SensioEoptClimateEntity)
+        entity.coordinator = coord
+        entity.device = device
+        entity._mode_selector = None
+        entity._attr_hvac_mode = HVACMode.HEAT
+        entity._attr_min_temp = 5.0
+        entity._attr_max_temp = 40.0
+        entity._attr_target_temperature = device.target_temperature
+        entity.async_write_ha_state = MagicMock()
+        entity._attr_name = "Vaskerom"
+        return entity
+
+    @pytest.mark.asyncio
+    async def test_set_temperature_does_not_mutate_on_failure(self):
+        entity = self._make_entity()
+        entity.device.target_temperature = 21.0
+        entity._attr_target_temperature = 21.0
+        await entity.async_set_temperature(temperature=22.5)
+        assert entity.device.target_temperature == 21.0
+        assert entity._attr_target_temperature == 21.0

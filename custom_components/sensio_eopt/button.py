@@ -9,6 +9,8 @@ Exposes two kinds of pressable buttons:
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -19,6 +21,8 @@ from .lib.devices import SensioEoptModeSelector, SensioEoptScene
 from .const import DOMAIN
 from .coordinator import SensioEoptCoordinator
 from .entity import SensioEoptEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 OPTION_LABELS = {
     "home":     "Home",
@@ -50,16 +54,23 @@ async def async_setup_entry(
 class SensioEoptButtonEntity(SensioEoptEntity, ButtonEntity):
     """A one-shot scene or action button."""
 
+    _attr_icon = "mdi:gesture-tap-button"
+
     def __init__(self, coordinator: SensioEoptCoordinator, device: SensioEoptScene) -> None:
         super().__init__(coordinator, device)
         self._attr_name = device.name
 
     async def async_press(self) -> None:
-        await self.coordinator.controller.trigger(self.device.func, self.device.value)
+        try:
+            await self.coordinator.controller.trigger(self.device.func, self.device.value)
+        except Exception as exc:
+            _LOGGER.error("Failed to press button %s: %s", self._attr_name, exc)
 
 
 class SensioEoptModeButtonEntity(SensioEoptEntity, ButtonEntity):
     """One pressable button per mode option — always re-applies the mode on press."""
+
+    _attr_icon = "mdi:home-circle"
 
     def __init__(
         self,
@@ -76,4 +87,7 @@ class SensioEoptModeButtonEntity(SensioEoptEntity, ButtonEntity):
         self._attr_unique_id = f"{DOMAIN}_{device.unique_id}_{option_key}"
 
     async def async_press(self) -> None:
-        await self.coordinator.controller.trigger(self._func)
+        try:
+            await self.coordinator.controller.trigger(self._func)
+        except Exception as exc:
+            _LOGGER.error("Failed to press button %s: %s", self._attr_name, exc)
